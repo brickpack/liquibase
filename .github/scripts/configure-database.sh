@@ -13,12 +13,11 @@ fi
 echo "🔧 Configuring database: $DATABASE"
 
 if [ "$TEST_MODE" = "true" ]; then
-    # Test mode - offline configuration
+    # Test mode - offline configuration (no classpath needed for PostgreSQL)
     cat > "liquibase-$DATABASE.properties" << EOF
 changelogFile=changelog-$DATABASE.xml
 url=offline:postgresql
 driver=org.postgresql.Driver
-classpath=drivers/postgresql.jar
 logLevel=INFO
 logFile=liquibase-$DATABASE.log
 outputFile=liquibase-$DATABASE-output.txt
@@ -62,7 +61,7 @@ else
     case "$DB_TYPE" in
         "postgresql")
             DB_DRIVER="org.postgresql.Driver"
-            DRIVER_PATH="drivers/postgresql.jar"
+            DRIVER_PATH=""  # PostgreSQL driver included in Liquibase 4.33.0
             ;;
         "mysql")
             DB_DRIVER="com.mysql.cj.jdbc.Driver"
@@ -92,7 +91,14 @@ url=$DB_URL
 username=$DB_USERNAME
 password=$DB_PASSWORD
 driver=$DB_DRIVER
-classpath=$DRIVER_PATH
+EOF
+
+    # Add classpath only if driver path is specified
+    if [ -n "$DRIVER_PATH" ]; then
+        echo "classpath=$DRIVER_PATH" >> "liquibase-$DATABASE.properties"
+    fi
+
+    cat >> "liquibase-$DATABASE.properties" << EOF
 logLevel=INFO
 logFile=liquibase-$DATABASE.log
 outputFile=liquibase-$DATABASE-output.txt
