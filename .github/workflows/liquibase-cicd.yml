@@ -113,7 +113,7 @@ jobs:
       run: |
         if ! ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate; then
           echo "⚠️ Validation failed, likely due to checksum mismatch. Clearing checksums..."
-          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} clearCheckSums
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} clear-checksums
           echo "✅ Checksums cleared. Re-running validation..."
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate
         fi
