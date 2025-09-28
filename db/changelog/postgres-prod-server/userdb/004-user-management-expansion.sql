@@ -161,6 +161,7 @@ ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(20) DEFAULT 'free';
 
 --changeset myapp-team:004-create-indexes-for-new-tables
 --comment: Create performance indexes for new tables
+--runInTransaction:false
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_profiles_display_name ON user_profiles(display_name);
 
