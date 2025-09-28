@@ -2,12 +2,17 @@
 
 A secure, branch-aware Liquibase CI/CD pipeline with AWS integration. Currently configured for PostgreSQL with multi-platform support ready to implement.
 
-## Quick Start
+## Overview
 
-### 1. Create Your Changesets
+This pipeline automatically:
 
-Write SQL changes as Liquibase-formatted files organized by RDS server and database:
+- 🔍 **Discovers databases** from changelog files
+- 🌿 **Tests on feature branches** (offline validation)
+- 🚀 **Deploys on main branch** (after PR approval)
+- 🏗️ **Creates databases** automatically if they don't exist
+- 🛡️ **Uses safety patterns** (`IF NOT EXISTS` for tables, `CREATE OR REPLACE` for functions only)
 
+**Directory Structure:**
 ```text
 db/changelog/
 └── postgres-prod-server/        # RDS instance name
@@ -19,19 +24,109 @@ db/changelog/
         ├── 001-initial-schema.sql
         ├── 002-user-management.sql
         └── 003-add-indexes.sql
-
-# Example structure for additional servers:
-# ├── postgres-dev-server/      # Different RDS instance
-# │   └── testdb/
-# │       └── 001-test-schema.sql
-# └── mysql-prod-server/        # MySQL RDS instance
-#     └── ecommerce/
-#         └── 001-products.sql
 ```
 
-Example changeset file (`db/changelog/postgres-prod-server/myappdb/001-initial-schema.sql`):
+## Quick Start
 
-```sql
+### 1. Create Feature Branch
+
+```bash
+# Start with a feature branch for your database changes
+git checkout -b feature/add-myappdb
+```
+
+### 2. Add Database Configuration
+
+**You need TWO types of secrets in AWS Secrets Manager:**
+
+#### A) Master Database Secret (Required Once Per RDS Server)
+
+This gives the pipeline permission to CREATE new databases on your RDS server:
+
+```json
+{
+  "postgres-master": {
+    "type": "postgresql",
+    "url": "jdbc:postgresql://your-rds-endpoint:5432/postgres",
+    "username": "postgres_user",
+    "password": "your-master-password"
+  }
+}
+```
+
+**Key Points:**
+- Points to the **system database** (`/postgres` not `/myappdb`)
+- User must have **CREATE DATABASE privileges**
+- Only needed **once per RDS server** - can create unlimited databases
+- Used by pipeline to create databases that don't exist
+
+#### B) Application Database Secret (Required For Each Database)
+
+This tells the pipeline how to connect to your specific database:
+
+```json
+{
+  "postgres-master": { ... from above ... },
+  "postgres-myappdb": {
+    "type": "postgresql",
+    "url": "jdbc:postgresql://your-rds-endpoint:5432/myappdb",
+    "username": "postgres_user",
+    "password": "your-password"
+  }
+}
+```
+
+**Key Points:**
+- Points to your **application database** (`/myappdb`)
+- Used for deploying changesets to your database
+- Pipeline uses this to discover which databases to deploy to
+
+#### Examples for All Platforms
+
+```json
+{
+  "postgres-master": {
+    "type": "postgresql",
+    "url": "jdbc:postgresql://your-rds-endpoint:5432/postgres",
+    "username": "postgres_user",
+    "password": "master-password"
+  },
+  "postgres-myappdb": {
+    "type": "postgresql",
+    "url": "jdbc:postgresql://your-rds-endpoint:5432/myappdb",
+    "username": "postgres_user",
+    "password": "app-password"
+  },
+  "mysql-master": {
+    "type": "mysql",
+    "url": "jdbc:mysql://your-rds-endpoint:3306/mysql",
+    "username": "root",
+    "password": "master-password"
+  },
+  "mysql-ecommerce": {
+    "type": "mysql",
+    "url": "jdbc:mysql://your-rds-endpoint:3306/ecommerce",
+    "username": "mysql_user",
+    "password": "app-password"
+  }
+}
+```
+
+**How It Works:**
+1. **Step 1**: Pipeline scans for `changelog-postgres-myappdb.xml` file → extracts secret name `postgres-myappdb`
+2. **Step 2**: Pipeline finds `postgres-myappdb` secret → discovers you want a database called `myappdb`
+3. **Step 3**: Pipeline checks if `myappdb` database exists
+4. **Step 4**: If not, pipeline uses `postgres-master` secret to CREATE the database
+5. **Step 5**: Pipeline uses `postgres-myappdb` secret to deploy your changesets
+
+### 3. Create Your Changesets
+
+```bash
+# Create directory structure
+mkdir -p db/changelog/postgres-prod-server/myappdb/
+
+# Create your SQL changeset files
+cat > db/changelog/postgres-prod-server/myappdb/001-initial-schema.sql << 'EOF'
 --liquibase formatted sql
 
 --changeset myapp-team:001-create-users-table
@@ -45,148 +140,58 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+EOF
+
+# Copy and customize the changelog template
+cp changelog-postgres-prod.xml changelog-postgres-prod-myappdb.xml
+
+# Edit changelog to include your SQL files
+sed -i 's|postgres-prod-server/userdb|postgres-prod-server/myappdb|g' changelog-postgres-prod-myappdb.xml
 ```
+
+**🔑 IMPORTANT - Filename Mapping:**
+- Changelog file: `changelog-postgres-prod-myappdb.xml`
+- Secret name: `postgres-prod-myappdb`
+- **The pipeline extracts the secret name from the changelog filename!**
+- Pattern: `changelog-{SECRET_NAME}.xml` → looks up secret `{SECRET_NAME}`
 
 **Directory naming:** `{server-name}/{database-name}/` - mirrors your actual RDS and database structure.
 
-### 2. Set Up Your Database
-
-The pipeline automatically discovers databases from AWS Secrets Manager, but the RDS instance must exist first.
-
-**Understanding Database Creation:**
-
-Think of your RDS instance like an apartment building:
-
-- **RDS Instance** = The building
-- **Master Database** = Building manager's office (`/postgres` system database)
-- **Application Databases** = Individual apartments (`/userdb`, `/myappdb`, etc.)
-
-To create new "apartments" (databases), you need access to the "building manager" (master config).
-
-**Prerequisites:** Master configuration in AWS Secrets Manager (examples for each platform):
-
-```json
-{
-  "postgres-master": {
-    "type": "postgresql",
-    "url": "jdbc:postgresql://your-rds-endpoint:5432/postgres",
-    "username": "postgres_user",
-    "password": "your-master-password"
-  },
-  "mysql-master": {
-    "type": "mysql",
-    "url": "jdbc:mysql://your-rds-endpoint:3306/mysql",
-    "username": "root",
-    "password": "your-master-password"
-  },
-  "sqlserver-master": {
-    "type": "sqlserver",
-    "url": "jdbc:sqlserver://your-rds-endpoint:1433;databaseName=master",
-    "username": "sa",
-    "password": "your-master-password"
-  },
-  "oracle-master": {
-    "type": "oracle",
-    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:XE",
-    "username": "system",
-    "password": "your-master-password"
-  }
-}
-```
-
-**Requirements:**
-
-- Points to the **system database** (`/postgres`, `/mysql`, `/master`, etc.) not an application database
-- User must have **CREATE DATABASE privileges**
-- Used to create **all new databases** on this RDS server
-- **One master config per RDS instance** - creates unlimited application databases
-
-### Step A: Add Database Config to Secrets
-
-Add your new database configuration to the existing AWS Secrets Manager secret (examples for each platform):
-
-```json
-{
-  "postgres-master": { ... existing ... },
-  "postgres-myappdb": {
-    "type": "postgresql",
-    "url": "jdbc:postgresql://your-rds-endpoint:5432/myappdb",
-    "username": "postgres_user",
-    "password": "your-password"
-  },
-  "mysql-ecommerce": {
-    "type": "mysql",
-    "url": "jdbc:mysql://your-rds-endpoint:3306/ecommerce",
-    "username": "mysql_user",
-    "password": "your-password"
-  },
-  "sqlserver-inventory": {
-    "type": "sqlserver",
-    "url": "jdbc:sqlserver://your-rds-endpoint:1433;databaseName=inventory",
-    "username": "sql_user",
-    "password": "your-password"
-  },
-  "oracle-finance": {
-    "type": "oracle",
-    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:finance",
-    "username": "oracle_user",
-    "password": "your-password"
-  }
-}
-```
-
-### Step B: Set Up Changelog
+### 4. Test and Deploy
 
 ```bash
-# Copy the changelog template
-cp changelog-postgres-prod.xml changelog-postgres-prod-myappdb.xml
-
-# Edit to include your SQL files:
-# <include file="db/changelog/postgres-prod-server/myappdb/001-schema.sql"/>
-```
-
-### Step C: Deploy Changes
-
-```bash
-# 1. Feature branch: Create, commit, and test changes
-git checkout -b feature/add-myappdb
+# Commit and test changes
 git add changelog-postgres-prod-myappdb.xml
 git add db/changelog/postgres-prod-server/myappdb/
 git commit -m "Add myappdb database with initial schema"
 git push origin feature/add-myappdb
 # → Pipeline validates changesets in offline mode
 
-# 2. Create Pull Request and get approval
+# Create Pull Request and get approval
 gh pr create --title "Add myappdb database" --body "Adds new myappdb database with user management schema"
 # → Get PR reviewed and approved by team
 
-# 3. Merge PR to main triggers deployment
+# Merge PR to main triggers deployment
 # Once PR is approved and merged to main:
 # → Pipeline automatically creates myappdb database if it doesn't exist
 # → Then deploys your changesets to the new database
 ```
 
-### Alternative: Manual Database Creation
+## Advanced Configuration
 
-If you prefer to create the database manually (using AWS Console, CLI, or other tools), you still need to add the database configuration to AWS Secrets Manager:
+### Manual Database Creation
 
-```json
-{
-  "postgres-myapp": {
-    "type": "postgresql",
-    "url": "jdbc:postgresql://your-rds-endpoint:5432/myapp",
-    "username": "postgres_user",
-    "password": "your-password"
-  }
-}
-```
-
-**Manual Operation (Optional):**
+If you prefer to create databases manually instead of automatic creation:
 
 ```bash
-# Only needed if you want to create the database ahead of time
+# Create database ahead of time (optional)
 ./.github/scripts/create-database.sh postgresql myappdb
+./.github/scripts/create-database.sh mysql ecommerce
+./.github/scripts/create-database.sh sqlserver inventory
+./.github/scripts/create-database.sh oracle finance
 ```
+
+**Note:** You still need both master and application secrets in AWS Secrets Manager even with manual creation.
 
 ## Pipeline Behavior
 
@@ -198,47 +203,14 @@ If you prefer to create the database manually (using AWS Console, CLI, or other 
 
 ## Features
 
-- 🔍 **Dynamic Discovery**: Automatically finds databases
-- 🌿 **Branch-Aware**: Different behavior per branch type
+- 🔍 **Dynamic Discovery**: Automatically finds databases from changelog files
+- 🌿 **Branch-Aware**: Test mode on branches, deploy mode on main
 - 🔒 **Secure**: No credentials needed for testing
 - 🚀 **Parallel**: All databases deploy simultaneously
-- 📋 **Previews**: SQL previews for all changes
-- 🛡️ **Safe**: Continue on individual database failures
-
-## Adding Databases
-
-1. Create `changelog-<name>.xml` file
-2. Add database entry to consolidated AWS secret `liquibase-databases`
-3. Push changes - pipeline automatically discovers the new database
-
-No workflow modifications needed!
-
-## Manual Operations
-
-**Database Creation:**
-
-- Use `.github/scripts/create-database.sh` for new databases
-- Use AWS Console for RDS instance creation
-
-**Deployment Control:**
-
-- Use GitHub Actions UI to target specific databases
-- Force test/deploy modes via workflow dispatch
-- Override branch behavior as needed
-
-## Current Database Setup
-
-This repository includes a ready-to-use PostgreSQL configuration:
-
-- **PostgreSQL**: User management system (`changelog-postgres-prod.xml`)
-- **Database Creation**: Multi-platform script (`.github/scripts/create-database.sh`)
-
-The PostgreSQL setup includes realistic schemas with tables, indexes, functions, and PostgreSQL-specific features.
+- 🏗️ **Auto-Create**: Creates missing databases automatically
+- 🛡️ **Safe**: Uses `IF NOT EXISTS` for tables, continues on individual failures
 
 ## Documentation
 
 - `aws-setup.md` - Complete AWS setup guide
-- `DATABASE-MANAGEMENT.md` - Database creation and management
 - `SAFETY-TESTING-PLAN.md` - Comprehensive safety testing procedures
-
-For technical details, see the documentation files above.

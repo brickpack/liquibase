@@ -38,16 +38,16 @@ This document outlines the complete testing strategy to ensure the Liquibase pip
 # Verify: No syntax errors or dependency issues
 ```
 
-### Test 1.3: Bootstrap SQL Generation
-**Purpose**: See what bootstrap operations would do
-**Safety Level**: ✅ COMPLETELY SAFE - No database changes
+### Test 1.3: Database Creation Test
+**Purpose**: Verify database creation script works safely
+**Safety Level**: ✅ COMPLETELY SAFE - Only shows what would be created
 
 ```bash
-# Test bootstrap in dry-run mode (if postgres-master config exists)
-./.github/scripts/run-liquibase.sh postgres-master update-sql --changelog-file=changelog-bootstrap.xml
+# Test database creation script in dry-run mode
+./.github/scripts/create-database.sh postgresql testdb --dry-run
 
-# Expected: Shows database creation with preconditions
-# Look for: Precondition checks before CREATE DATABASE
+# Expected: Shows database creation logic with existence checks
+# Look for: IF NOT EXISTS patterns in database creation
 # Verify: No DROP DATABASE or destructive operations
 ```
 
@@ -137,19 +137,19 @@ Test each type of operation:
 # Confirm: Only tracking data is modified
 ```
 
-## Phase 4: Bootstrap Safety Testing
+## Phase 4: Database Creation Safety Testing
 
-### Test 4.1: Bootstrap Precondition Test
-**Purpose**: Verify database creation preconditions work
-**Safety Level**: ✅ SAFE - Preconditions prevent unwanted operations
+### Test 4.1: Database Creation Safety Test
+**Purpose**: Verify database creation handles existing databases safely
+**Safety Level**: ✅ SAFE - Existence checks prevent recreation
 
 ```bash
-# Test bootstrap against existing database setup
-# This should skip creation if databases already exist
-./.github/scripts/run-liquibase.sh postgres-master update --changelog-file=changelog-bootstrap.xml
+# Test database creation against existing setup
+# This should skip creation if database already exists
+./.github/scripts/create-database.sh postgresql userdb
 
-# Expected: Preconditions detect existing databases
-# Verify: Skips creation, shows "preconditions failed"
+# Expected: Script detects existing database and skips creation
+# Verify: Shows "Database already exists" message
 # Confirm: No attempt to recreate existing databases
 ```
 
@@ -161,9 +161,7 @@ Test each type of operation:
 
 ```bash
 # Test database discovery process
-cd .github/workflows
-# Look at discovery script in liquibase-cicd.yml line 42
-databases=$(find . -name "changelog-*.xml" -type f | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
+databases=$(find . -name "changelog-*.xml" -type f | grep -v "changelog-bootstrap.xml" | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
 echo "Found databases: $databases"
 
 # Expected: Only scans files, no database connections
@@ -195,7 +193,7 @@ echo "Found databases: $databases"
 git checkout -b safety-test-branch
 
 # Make a small, safe change to test pipeline
-echo "-- Test comment" >> db/changelog/postgres/003-add-indexes.sql
+echo "-- Test comment" >> db/changelog/postgres-prod-server/userdb/003-add-indexes.sql
 
 # Commit and push to test branch (not main)
 git add .
@@ -259,16 +257,16 @@ WHERE md5sum IS NOT NULL;
 
 ```bash
 # Verify all schema files use safe patterns
-grep -n "CREATE TABLE" db/changelog/postgres/*.sql
-# Should show: No CREATE TABLE without safety checks
+grep -n "CREATE TABLE" db/changelog/postgres-prod-server/userdb/*.sql
+# Should show: CREATE TABLE IF NOT EXISTS patterns
 
-grep -n "CREATE INDEX" db/changelog/postgres/*.sql
+grep -n "CREATE INDEX" db/changelog/postgres-prod-server/userdb/*.sql
 # Should show: CREATE INDEX IF NOT EXISTS or CREATE INDEX CONCURRENTLY IF NOT EXISTS
 
-grep -n "ALTER TABLE.*ADD COLUMN" db/changelog/postgres/*.sql
+grep -n "ALTER TABLE.*ADD COLUMN" db/changelog/postgres-prod-server/userdb/*.sql
 # Should show: ADD COLUMN IF NOT EXISTS
 
-grep -n "CREATE OR REPLACE" db/changelog/postgres/*.sql
+grep -n "CREATE OR REPLACE" db/changelog/postgres-prod-server/userdb/*.sql
 # Should show: Functions use CREATE OR REPLACE (safe for functions)
 ```
 
@@ -304,7 +302,7 @@ rm test-failure.sql
 - [ ] All validation tests pass
 - [ ] All preconditions work correctly
 - [ ] All safety patterns verified in SQL files
-- [ ] Bootstrap preconditions tested
+- [ ] Database creation safety tested
 - [ ] Idempotent operations confirmed
 - [ ] Pipeline discovery tested
 - [ ] Manual step-by-step execution completed
@@ -319,7 +317,7 @@ rm test-failure.sql
 - [ ] No DROP, DELETE, or TRUNCATE statements
 - [ ] All changesets have proper IDs and authors
 - [ ] Preconditions prevent unwanted operations
-- [ ] Bootstrap has database existence checks
+- [ ] Database creation scripts have existence checks
 
 ### ✅ Liquibase Safety Features Active
 - [ ] DATABASECHANGELOG table exists and populated
