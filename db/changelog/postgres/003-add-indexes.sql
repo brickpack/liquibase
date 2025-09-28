@@ -37,7 +37,7 @@ CREATE TABLE user_audit (
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE OR REPLACE FUNCTION audit_user_changes() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION audit_user_changes() RETURNS trigger AS $audit_func$
 BEGIN
     IF TG_OP = 'DELETE' THEN
         INSERT INTO user_audit(user_id, operation, changed_data, changed_at)
@@ -54,7 +54,7 @@ BEGIN
     END IF;
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$audit_func$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_audit_user_changes
     AFTER INSERT OR UPDATE OR DELETE ON users
