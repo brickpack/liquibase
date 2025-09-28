@@ -131,11 +131,63 @@ If you prefer using the AWS Console:
 
 ## 2. Set up GitHub OIDC Provider (if not already exists)
 
-If your AWS account doesn't have the GitHub OIDC provider, create it:
+The GitHub OIDC provider allows GitHub Actions to authenticate with AWS without storing long-lived credentials. Most AWS accounts don't have this provider by default, so you'll likely need to create it.
 
-- Provider URL: `https://token.actions.githubusercontent.com`
-- Audience: `sts.amazonaws.com`
-- Thumbprint: `6938fd4d98bab03faadb97b34396831e3780aea1`
+### Check if OIDC Provider Already Exists
+
+First, check if your AWS account already has the GitHub OIDC provider:
+
+```bash
+# Check for existing GitHub OIDC provider
+aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `token.actions.githubusercontent.com`)]'
+```
+
+If this returns an empty list `[]`, you need to create the provider.
+
+### Option A: Create OIDC Provider with AWS CLI
+
+```bash
+# Create the GitHub OIDC provider
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+```
+
+### Option B: Create OIDC Provider via AWS Console
+
+1. **Go to IAM Console** → Identity providers → Add provider
+2. **Provider type**: OpenID Connect
+3. **Provider URL**: `https://token.actions.githubusercontent.com`
+4. **Audience**: `sts.amazonaws.com`
+5. **Add provider**
+
+### OIDC Provider Settings Explained
+
+- **Provider URL**: `https://token.actions.githubusercontent.com`
+  - This is GitHub's OIDC endpoint that issues tokens for GitHub Actions
+- **Audience**: `sts.amazonaws.com`
+  - This specifies that the tokens are intended for AWS STS (Security Token Service)
+- **Thumbprint**: `6938fd4d98bab03faadb97b34396831e3780aea1`
+  - This is the SSL certificate thumbprint for GitHub's OIDC provider (GitHub manages this)
+
+### Verify OIDC Provider Creation
+
+After creating the provider, verify it was created successfully:
+
+```bash
+# Verify the OIDC provider exists
+aws iam get-open-id-connect-provider \
+  --open-id-connect-provider-arn arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+```
+
+Replace `YOUR_ACCOUNT_ID` with your actual AWS account ID.
+
+### Common OIDC Provider Issues
+
+- **Provider already exists**: If you get an error that the provider already exists, skip this step and proceed to create the IAM role
+- **Thumbprint verification**: The thumbprint `6938fd4d98bab03faadb97b34396831e3780aea1` is current as of 2024. If GitHub updates their certificates, you may need to update this value
+- **Multiple audiences**: If you need to add more audiences later, you can update the provider to include additional client IDs
 
 ## 3. Create Single Consolidated Secret in AWS Secrets Manager
 
