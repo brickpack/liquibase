@@ -132,7 +132,8 @@ jobs:
 
           # Check for common SQL syntax issues
           # 1. Check for unterminated quotes
-          if grep -n "'\|\"" "$sql_file" | grep -v "^[[:space:]]*--" | while read -r line; do
+          quote_error=0
+          grep -n "'\|\"" "$sql_file" | grep -v "^[[:space:]]*--" | while read -r line; do
             line_num=$(echo "$line" | cut -d: -f1)
             content=$(echo "$line" | cut -d: -f2-)
 
@@ -140,33 +141,30 @@ jobs:
             single_quotes=$(echo "$content" | grep -o "'" | wc -l)
             if [ $((single_quotes % 2)) -ne 0 ]; then
               echo "⚠️  Line $line_num: Possible unterminated single quote"
-              return 1
+              echo "1" > /tmp/quote_error_$$.tmp
             fi
-          done; then
-            :
-          else
+          done
+          
+          if [ -f "/tmp/quote_error_$$.tmp" ]; then
             echo "❌ Quote validation failed for $sql_file"
             VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+            rm -f /tmp/quote_error_$$.tmp
           fi
 
           # 2. Check for dollar quote issues
-          if grep -n '\$[^$]*\$' "$sql_file" | while read -r line; do
-            line_num=$(echo "$line" | cut -d: -f1)
-            content=$(echo "$line" | cut -d: -f2-)
-
-            # Extract dollar quote tags
-            dollar_tags=$(echo "$content" | grep -o '\$[^$]*\$' | sort | uniq -c)
-
-            # Check if each tag appears an even number of times
-            while read -r count tag; do
-              if [ -n "$tag" ] && [ $((count % 2)) -ne 0 ]; then
-                echo "⚠️  Unmatched dollar quote tag: $tag (appears $count times)"
-                return 1
-              fi
-            done <<< "$dollar_tags"
-          done; then
-            :
-          else
+          # Extract all dollar quote tags from the entire file
+          dollar_tags=$(grep -o '\$[^$]*\$' "$sql_file" | sort | uniq -c)
+          
+          # Check if each tag appears an even number of times
+          dollar_quote_error=0
+          while read -r count tag; do
+            if [ -n "$tag" ] && [ $((count % 2)) -ne 0 ]; then
+              echo "⚠️  Unmatched dollar quote tag: $tag (appears $count times)"
+              dollar_quote_error=1
+            fi
+          done <<< "$dollar_tags"
+          
+          if [ $dollar_quote_error -eq 1 ]; then
             echo "❌ Dollar quote validation failed for $sql_file"
             VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
           fi
