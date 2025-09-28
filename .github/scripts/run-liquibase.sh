@@ -7,7 +7,7 @@ TEST_MODE=${3:-"false"}
 
 if [ -z "$DATABASE" ] || [ -z "$COMMAND" ]; then
     echo "❌ Usage: $0 <database> <command> [test_mode]"
-    echo "Commands: validate, update, update-sql, status"
+    echo "Commands: validate, update, update-sql, status, clear-checksums"
     exit 1
 fi
 
@@ -85,6 +85,16 @@ case "$COMMAND" in
     "status")
         echo "📊 Checking database status for $DATABASE..."
         ./liquibase --defaults-file="$PROPERTIES_FILE" status
+        ;;
+    "clear-checksums")
+        echo "🧹 Clearing checksums for $DATABASE..."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        if ./liquibase --defaults-file="$PROPERTIES_FILE" clear-checksums; then
+            echo "✅ Checksums cleared successfully for $DATABASE"
+        else
+            echo "❌ Failed to clear checksums for $DATABASE"
+            exit 1
+        fi
         ;;
     *)
         echo "❌ Unknown command: $COMMAND"
