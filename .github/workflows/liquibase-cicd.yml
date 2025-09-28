@@ -102,6 +102,169 @@ jobs:
     - name: Analyze changelog structure
       run: ./.github/scripts/analyze-changelog.sh ${{ matrix.database }}
 
+    - name: Validate SQL syntax
+      run: |
+        echo "🔍 Validating SQL syntax for ${{ matrix.database }}..."
+
+        # Find all SQL files referenced by this changelog
+        SQL_FILES=$(grep -o 'file="[^"]*\.sql"' changelog-${{ matrix.database }}.xml | sed 's/file="//g' | sed 's/"//g')
+
+        if [ -z "$SQL_FILES" ]; then
+          echo "ℹ️ No SQL files found to validate"
+          exit 0
+        fi
+
+        echo "📄 Found SQL files to validate:"
+        echo "$SQL_FILES"
+        echo ""
+
+        # Check each SQL file for basic syntax issues
+        VALIDATION_ERRORS=0
+
+        for sql_file in $SQL_FILES; do
+          if [ ! -f "$sql_file" ]; then
+            echo "❌ File not found: $sql_file"
+            VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+            continue
+          fi
+
+          echo "🔍 Validating: $sql_file"
+
+          # Check for common SQL syntax issues
+          # 1. Check for unterminated quotes
+          if grep -n "'\|\"" "$sql_file" | grep -v "^[[:space:]]*--" | while read -r line; do
+            line_num=$(echo "$line" | cut -d: -f1)
+            content=$(echo "$line" | cut -d: -f2-)
+
+            # Count single quotes (ignoring comments)
+            single_quotes=$(echo "$content" | grep -o "'" | wc -l)
+            if [ $((single_quotes % 2)) -ne 0 ]; then
+              echo "⚠️  Line $line_num: Possible unterminated single quote"
+              return 1
+            fi
+          done; then
+            :
+          else
+            echo "❌ Quote validation failed for $sql_file"
+            VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+          fi
+
+          # 2. Check for dollar quote issues
+          if grep -n '\$[^$]*\$' "$sql_file" | while read -r line; do
+            line_num=$(echo "$line" | cut -d: -f1)
+            content=$(echo "$line" | cut -d: -f2-)
+
+            # Extract dollar quote tags
+            dollar_tags=$(echo "$content" | grep -o '\$[^$]*\$' | sort | uniq -c)
+
+            # Check if each tag appears an even number of times
+            while read -r count tag; do
+              if [ -n "$tag" ] && [ $((count % 2)) -ne 0 ]; then
+                echo "⚠️  Unmatched dollar quote tag: $tag (appears $count times)"
+                return 1
+              fi
+            done <<< "$dollar_tags"
+          done; then
+            :
+          else
+            echo "❌ Dollar quote validation failed for $sql_file"
+            VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+          fi
+
+          # 3. Check for required Liquibase headers
+          if ! grep -q "^--liquibase formatted sql" "$sql_file"; then
+            echo "❌ Missing Liquibase header in $sql_file"
+            VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+          fi
+
+          # 4. Check for changeset format
+          if ! grep -q "^--changeset " "$sql_file"; then
+            echo "❌ No changesets found in $sql_file"
+            VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+          fi
+
+          # 5. Check for potentially dangerous operations
+          DANGEROUS_OPS=$(grep -in "DROP\|DELETE\|TRUNCATE" "$sql_file" | grep -v "^[[:space:]]*--" || true)
+          if [ -n "$DANGEROUS_OPS" ]; then
+            echo "⚠️  Potentially dangerous operations found in $sql_file:"
+            echo "$DANGEROUS_OPS"
+            echo "   Please review these operations carefully"
+          fi
+
+          echo "✅ Basic validation passed for $sql_file"
+        done
+
+        if [ $VALIDATION_ERRORS -gt 0 ]; then
+          echo ""
+          echo "❌ SQL validation failed with $VALIDATION_ERRORS error(s)"
+          echo "🔧 Please fix the syntax errors above before proceeding"
+          exit 1
+        else
+          echo ""
+          echo "✅ All SQL files passed basic syntax validation"
+        fi
+
+    - name: Liquibase offline validation
+      run: |
+        echo "🧪 Running Liquibase offline validation for ${{ matrix.database }}..."
+
+        # Create temporary offline configuration for validation
+        cat > liquibase-${{ matrix.database }}-validation.properties << 'EOF'
+        changelogFile=changelog-${{ matrix.database }}.xml
+        url=offline:postgresql
+        driver=org.postgresql.Driver
+        logLevel=INFO
+        logFile=liquibase-${{ matrix.database }}-validation.log
+        outputFile=liquibase-${{ matrix.database }}-validation-output.txt
+        EOF
+
+        # Run Liquibase validation in offline mode
+        if ./liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties validate; then
+          echo "✅ Liquibase offline validation PASSED for ${{ matrix.database }}"
+        else
+          echo "❌ Liquibase offline validation FAILED for ${{ matrix.database }}"
+          echo "📄 Validation log:"
+          if [ -f "liquibase-${{ matrix.database }}-validation.log" ]; then
+            cat "liquibase-${{ matrix.database }}-validation.log"
+          fi
+          exit 1
+        fi
+
+        # Generate SQL preview in offline mode to catch additional issues
+        echo "📋 Generating SQL preview to validate changeset logic..."
+        if ./liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties update-sql > planned-changes-${{ matrix.database }}-validation.sql; then
+          echo "✅ SQL generation succeeded"
+
+          # Show a preview of what would be executed
+          echo "📄 SQL Preview (first 20 lines):"
+          head -20 planned-changes-${{ matrix.database }}-validation.sql | nl
+
+          # Check for safety patterns
+          SAFETY_CHECKS=0
+          if grep -q "IF NOT EXISTS\|CREATE OR REPLACE" planned-changes-${{ matrix.database }}-validation.sql; then
+            echo "✅ Safety patterns detected (IF NOT EXISTS/CREATE OR REPLACE)"
+            SAFETY_CHECKS=$((SAFETY_CHECKS + 1))
+          fi
+
+          if ! grep -q "DROP TABLE\|DELETE FROM\|TRUNCATE" planned-changes-${{ matrix.database }}-validation.sql; then
+            echo "✅ No destructive operations detected"
+            SAFETY_CHECKS=$((SAFETY_CHECKS + 1))
+          else
+            echo "⚠️  Destructive operations detected - please review carefully"
+          fi
+
+          echo "🛡️  Safety checks passed: $SAFETY_CHECKS/2"
+        else
+          echo "❌ SQL generation failed"
+          exit 1
+        fi
+
+        # Cleanup temporary files
+        rm -f liquibase-${{ matrix.database }}-validation.properties
+        rm -f liquibase-${{ matrix.database }}-validation.log
+        rm -f liquibase-${{ matrix.database }}-validation-output.txt
+        rm -f planned-changes-${{ matrix.database }}-validation.sql
+
     - name: Configure database connection
       run: |
         ./.github/scripts/configure-database.sh \
