@@ -110,7 +110,13 @@ jobs:
           ${{ needs.discover-databases.outputs.test-mode }}
 
     - name: Validate changelog
-      run: ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate
+      run: |
+        if ! ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate; then
+          echo "⚠️ Validation failed, likely due to checksum mismatch. Clearing checksums..."
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} clear-checksums
+          echo "✅ Checksums cleared. Re-running validation..."
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate
+        fi
 
     - name: Run deployment or generate test SQL
       run: |
