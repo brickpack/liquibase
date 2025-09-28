@@ -28,7 +28,7 @@ CREATE TRIGGER trigger_update_user_search_vector
 
 --changeset postgres-team:003-add-audit-table
 --comment: Add audit table for user changes
-CREATE TABLE user_audit (
+CREATE TABLE IF NOT EXISTS user_audit (
     audit_id BIGSERIAL PRIMARY KEY,
     user_id BIGINT,
     operation VARCHAR(10),

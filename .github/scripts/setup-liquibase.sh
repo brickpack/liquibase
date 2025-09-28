@@ -3,9 +3,9 @@ set -e
 
 echo "📦 Setting up Liquibase and database drivers..."
 
-# Download Liquibase
-wget -q https://github.com/liquibase/liquibase/releases/download/v4.25.1/liquibase-4.25.1.tar.gz
-tar -xzf liquibase-4.25.1.tar.gz
+# Download Liquibase (latest stable version)
+wget -q https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.tar.gz
+tar -xzf liquibase-4.33.0.tar.gz
 chmod +x liquibase
 
 # Create drivers directory
