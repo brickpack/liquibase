@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.25.xsd">
+
+    <!-- PostgreSQL Database Creation -->
+    <include file="db/bootstrap/postgres/001-create-databases.sql" relativeToChangelogFile="false"/>
+
+    <!-- MySQL Database Creation (placeholder - not implemented yet) -->
+    <!-- <include file="db/bootstrap/mysql/001-create-databases.sql" relativeToChangelogFile="false"/> -->
+
+    <!-- SQL Server Database Creation (placeholder - not implemented yet) -->
+    <!-- <include file="db/bootstrap/sqlserver/001-create-databases.sql" relativeToChangelogFile="false"/> -->
+
+    <!-- Oracle Database Creation (placeholder - not implemented yet) -->
+    <!-- <include file="db/bootstrap/oracle/001-create-databases.sql" relativeToChangelogFile="false"/> -->
+
+</databaseChangeLog>
