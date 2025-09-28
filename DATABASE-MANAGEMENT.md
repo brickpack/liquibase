@@ -3,6 +3,7 @@
 This guide explains how to create and manage databases across multiple platforms using the automated pipeline.
 
 **Current Implementation Status:**
+
 - ✅ **PostgreSQL**: Fully implemented (bootstrap + scripts)
 - 🚧 **MySQL**: Pipeline ready, implementation pending
 - 🚧 **SQL Server**: Pipeline ready, implementation pending
@@ -11,6 +12,7 @@ This guide explains how to create and manage databases across multiple platforms
 ## Quick Start
 
 ### 1. Create RDS Instance
+
 Use AWS Console or AWS CLI for RDS creation (more flexible than automated scripts):
 
 ```bash
@@ -27,6 +29,7 @@ aws rds create-db-instance \
 ```
 
 ### 2. Create Database (on Existing Instance)
+
 Use the consolidated script for all database platforms:
 
 ```bash
