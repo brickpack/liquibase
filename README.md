@@ -58,17 +58,21 @@ No workflow modifications needed!
 
 ## Manual Operations
 
-Use GitHub Actions UI to:
-- Target specific databases
-- Force test/deploy modes
-- Override branch behavior
+**Database Creation:**
+- Use `.github/scripts/create-database.sh` for new databases
+- Use AWS Console for RDS instance creation
+
+**Deployment Control:**
+- Use GitHub Actions UI to target specific databases
+- Force test/deploy modes via workflow dispatch
+- Override branch behavior as needed
 
 ## Current Database Setup
 
 This repository includes a ready-to-use PostgreSQL configuration:
 
 - **PostgreSQL**: User management system (`changelog-postgres-prod.xml`)
-- **Bootstrap**: Database creation system (`changelog-bootstrap.xml`)
+- **Database Creation**: Multi-platform script (`.github/scripts/create-database.sh`)
 
 The PostgreSQL setup includes realistic schemas with tables, indexes, functions, and PostgreSQL-specific features.
 

@@ -10,70 +10,70 @@ This guide explains how to create and manage databases across multiple platforms
 
 ## Quick Start
 
-### 1. Create a Database (Existing Instance)
-```bash
-# Via GitHub Actions UI:
-# Go to Actions → Database Management → Run workflow
-# Select: create-database
-# Database type: postgresql (others available but not implemented yet)
-# Database name: analytics
+### 1. Create RDS Instance
+Use AWS Console or AWS CLI for RDS creation (more flexible than automated scripts):
 
-# Via CLI scripts (PostgreSQL only implemented):
+```bash
+# Example AWS CLI command for PostgreSQL RDS
+aws rds create-db-instance \
+  --db-instance-identifier my-postgres-db \
+  --db-instance-class db.t3.micro \
+  --engine postgres \
+  --engine-version "17.6" \
+  --master-username postgres_user \
+  --master-user-password "your-secure-password" \
+  --allocated-storage 20 \
+  --storage-encrypted
+```
+
+### 2. Create Database (on Existing Instance)
+Use the consolidated script for all database platforms:
+
+```bash
+# PostgreSQL database
 ./.github/scripts/create-database.sh postgresql analytics
 ./.github/scripts/create-database.sh postgresql reporting
 ./.github/scripts/create-database.sh postgresql warehouse
 
-# Other platforms will show helpful error messages:
+# MySQL database
 ./.github/scripts/create-database.sh mysql ecommerce
-# ❌ MySQL database creation not implemented yet
-# 💡 To implement: create .github/scripts/create-mysql-database.sh
-```
 
-### 2. Create RDS Instance
-```bash
-# Via GitHub Actions UI:
-# Go to Actions → Database Management → Run workflow
-# Select: create-rds-instance
-# Database type: postgresql
-# Database name: analytics-prod
-# Instance class: db.t3.micro
-```
+# SQL Server database
+./.github/scripts/create-database.sh sqlserver reporting
 
-### 3. Bootstrap Databases
-```bash
-# Via GitHub Actions UI:
-# Go to Actions → Database Management → Run workflow
-# Select: run-bootstrap
-# (Optional) Database type: postgresql (or leave blank for all)
+# Oracle schema
+./.github/scripts/create-database.sh oracle legacy
 ```
 
 ## Database Creation Methods
 
-### Method 1: Bootstrap Changesets (Recommended)
-Uses Liquibase changesets to create databases automatically:
+### Method 1: Consolidated Script (Recommended)
+Direct database creation via the unified multi-platform script:
 
-**Files:**
-- `changelog-bootstrap.xml` - Main bootstrap changelog
-- `db/bootstrap/postgres/001-create-databases.sql` - PostgreSQL databases
-- `db/bootstrap/mysql/001-create-databases.sql` - MySQL databases
-- `db/bootstrap/sqlserver/001-create-databases.sql` - SQL Server databases
-- `db/bootstrap/oracle/001-create-databases.sql` - Oracle schemas
+**Script:**
+- `.github/scripts/create-database.sh` - Handles all platforms
 
 **How it works:**
-1. Push to main branch triggers bootstrap job
-2. Connects to master/system database
-3. Runs bootstrap changesets to create databases
-4. Updates AWS Secrets Manager with new configurations
+1. Connects to master/system database using AWS Secrets Manager
+2. Checks if database/schema already exists (safe operation)
+3. Creates database with platform-specific settings if needed
+4. Updates AWS Secrets Manager with new database configuration
+5. Provides connection details for immediate use
 
-### Method 2: Management Scripts
-Direct database creation via platform-specific scripts:
+**Safety Features:**
+- PostgreSQL: Checks `pg_database` table
+- MySQL: Checks `information_schema.schemata`
+- SQL Server: Checks `sys.databases`
+- Oracle: Checks `dba_users` for schemas
 
-**Scripts:**
-- `.github/scripts/create-database.sh` - Main entry point
-- `.github/scripts/create-postgres-database.sh` - PostgreSQL
-- `.github/scripts/create-mysql-database.sh` - MySQL
-- `.github/scripts/create-sqlserver-database.sh` - SQL Server
-- `.github/scripts/create-oracle-database.sh` - Oracle
+### Method 2: AWS Console
+Use AWS Console for RDS instance creation (infrastructure level):
+
+**Benefits:**
+- Full control over instance settings
+- Proper security group configuration
+- Managed password storage options
+- Backup and maintenance windows
 
 ## Platform-Specific Details
 
@@ -153,14 +153,14 @@ Each platform needs a master/system database configuration:
 ### Automatic Discovery
 The main CI/CD workflow automatically:
 1. Scans for `changelog-*.xml` files
-2. Discovers new databases in secrets
+2. Discovers databases configured in AWS Secrets Manager
 3. Deploys to all discovered databases in parallel
 
-### Bootstrap Integration
-The bootstrap job runs:
-- **When:** Push to main branch
-- **Condition:** `changelog-bootstrap.xml` exists
-- **Action:** Creates databases before main deployment
+### Database Creation Integration
+Database creation is separate from deployment:
+- **Creation:** Use `.github/scripts/create-database.sh` or AWS Console
+- **Deployment:** Automatic via main CI/CD pipeline
+- **Discovery:** New databases are auto-discovered on next deployment
 
 ## Usage Examples
 
