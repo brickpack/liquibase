@@ -1,14 +1,13 @@
-# Dynamic Liquibase CI/CD Pipeline
+# Liquibase CI/CD Pipeline
 
-A branch-aware, multi-database Liquibase CI/CD pipeline with AWS integration and dynamic database discovery. Supports PostgreSQL, MySQL, SQL Server, and Oracle.
+A secure, branch-aware Liquibase CI/CD pipeline with AWS integration. Currently configured for PostgreSQL with multi-platform support ready to implement.
 
 ## Quick Start
 
 ### 1. Add a New Database
 ```bash
-# Create a new changelog file (choose appropriate template)
+# Create a new changelog file
 cp changelog-postgres-prod.xml changelog-myapp-postgres.xml
-cp changelog-mysql-prod.xml changelog-myapp-mysql.xml
 
 # Edit the new file to include your changesets
 # Add database config to AWS secret: liquibase-databases
@@ -66,19 +65,17 @@ Use GitHub Actions UI to:
 
 ## Current Database Setup
 
-This repository includes ready-to-use examples for:
+This repository includes a ready-to-use PostgreSQL configuration:
 
 - **PostgreSQL**: User management system (`changelog-postgres-prod.xml`)
-- **MySQL**: E-commerce analytics (`changelog-mysql-prod.xml`)
-- **SQL Server**: Business intelligence reporting (`changelog-sqlserver-prod.xml`)
-- **Oracle**: Legacy system integration (`changelog-oracle-prod.xml`)
+- **Bootstrap**: Database creation system (`changelog-bootstrap.xml`)
 
-Each database includes realistic schemas with tables, indexes, procedures, and platform-specific features.
+The PostgreSQL setup includes realistic schemas with tables, indexes, functions, and PostgreSQL-specific features.
 
 ## Documentation
 
-- `CLAUDE.md` - Detailed technical documentation
-- `database-examples.md` - JDBC connection examples
-- `aws-setup.md` - AWS configuration guide
+- `aws-setup.md` - Complete AWS setup guide
+- `DATABASE-MANAGEMENT.md` - Database creation and management
+- `SAFETY-TESTING-PLAN.md` - Comprehensive safety testing procedures
 
-See `CLAUDE.md` for detailed documentation.
+For technical details, see the documentation files above.
