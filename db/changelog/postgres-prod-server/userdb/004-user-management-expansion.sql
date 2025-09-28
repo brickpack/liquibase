@@ -1,9 +1,9 @@
 --liquibase formatted sql
 
---changeset myapp-team:004-create-application-users
+--changeset myapp-team:004-create-application-users splitStatements:false
 --comment: Create application users for userdb
 --runOnChange:false
-DO $$
+DO $user_creation$
 BEGIN
     -- Create read-only user for reporting
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'userdb_readonly') THEN
@@ -23,7 +23,7 @@ BEGIN
         COMMENT ON ROLE userdb_backup IS 'Backup user for database backups';
     END IF;
 END
-$$;
+$user_creation$;
 
 --changeset myapp-team:004-grant-readonly-privileges
 --comment: Grant read-only privileges to readonly user
