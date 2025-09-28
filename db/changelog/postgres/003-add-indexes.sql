@@ -2,16 +2,16 @@
 
 --changeset postgres-team:003-add-performance-indexes runInTransaction:false
 --comment: Add performance indexes and constraints
-CREATE INDEX CONCURRENTLY idx_users_email_lower ON users(LOWER(email));
-CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);
-CREATE INDEX CONCURRENTLY idx_organizations_slug_lower ON organizations(LOWER(slug));
-CREATE INDEX CONCURRENTLY idx_user_organizations_role ON user_organizations(role);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_created_at ON users(created_at);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_organizations_slug_lower ON organizations(LOWER(slug));
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_organizations_role ON user_organizations(role);
 
 --changeset postgres-team:003-add-search-column runInTransaction:false
 --comment: Add search vector column and index
-ALTER TABLE users ADD COLUMN search_vector tsvector;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS search_vector tsvector;
 
-CREATE INDEX CONCURRENTLY idx_users_search_vector ON users USING GIN(search_vector);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_search_vector ON users USING GIN(search_vector);
 
 --changeset postgres-team:003-add-search-function
 --comment: Add search vector function and trigger
