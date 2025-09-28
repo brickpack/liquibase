@@ -7,17 +7,19 @@ CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);
 CREATE INDEX CONCURRENTLY idx_organizations_slug_lower ON organizations(LOWER(slug));
 CREATE INDEX CONCURRENTLY idx_user_organizations_role ON user_organizations(role);
 
---changeset postgres-team:003-add-full-text-search runInTransaction:false
---comment: Add full-text search capabilities
+--changeset postgres-team:003-add-search-column runInTransaction:false
+--comment: Add search vector column and index
 ALTER TABLE users ADD COLUMN search_vector tsvector;
 
 CREATE INDEX CONCURRENTLY idx_users_search_vector ON users USING GIN(search_vector);
 
+--changeset postgres-team:003-add-search-function
+--comment: Add search vector function and trigger
 CREATE OR REPLACE FUNCTION update_user_search_vector() RETURNS trigger AS $$
 BEGIN
     NEW.search_vector := to_tsvector('english', coalesce(NEW.username, '') || ' ' || coalesce(NEW.email, ''));
     RETURN NEW;
-END;
+END
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_user_search_vector
