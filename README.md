@@ -148,16 +148,20 @@ cp changelog-postgres-prod.xml changelog-postgres-prod-myappdb.xml
 ### Step C: Deploy Changes
 
 ```bash
-# Feature branch: Test & validate (no database creation)
+# 1. Feature branch: Create, commit, and test changes
 git checkout -b feature/add-myappdb
 git add changelog-postgres-prod-myappdb.xml
 git add db/changelog/postgres-prod-server/myappdb/
+git commit -m "Add myappdb database with initial schema"
 git push origin feature/add-myappdb
 # → Pipeline validates changesets in offline mode
 
-# Main branch: Automatically creates database + deploys changes
-git checkout main && git merge feature/add-myappdb
-git push origin main
+# 2. Create Pull Request and get approval
+gh pr create --title "Add myappdb database" --body "Adds new myappdb database with user management schema"
+# → Get PR reviewed and approved by team
+
+# 3. Merge PR to main triggers deployment
+# Once PR is approved and merged to main:
 # → Pipeline automatically creates myappdb database if it doesn't exist
 # → Then deploys your changesets to the new database
 ```
@@ -189,8 +193,8 @@ If you prefer to create the database manually (using AWS Console, CLI, or other 
 | Branch Type | Action | AWS Credentials | Database Connection |
 |-------------|--------|----------------|-------------------|
 | Feature branches | Test & validate | ❌ Not needed | Offline mode |
-| Main branch | Deploy changes | ✅ Required | Live databases |
 | Pull requests | Test & preview | ❌ Not needed | Offline mode |
+| Main branch (after PR merge) | Deploy changes | ✅ Required | Live databases |
 
 ## Features
 
