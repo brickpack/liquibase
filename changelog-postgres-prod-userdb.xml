@@ -10,5 +10,6 @@
     <include file="db/changelog/postgres-prod-server/userdb/002-user-management.sql"/>
     <include file="db/changelog/postgres-prod-server/userdb/003-add-indexes.sql"/>
     <include file="db/changelog/postgres-prod-server/userdb/004-user-management-expansion.sql"/>
+    <include file="db/changelog/postgres-prod-server/userdb/005-create-indexes-concurrent.sql"/>
 
 </databaseChangeLog>
