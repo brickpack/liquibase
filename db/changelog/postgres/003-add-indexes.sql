@@ -26,8 +26,8 @@ CREATE TRIGGER trigger_update_user_search_vector
     BEFORE INSERT OR UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_user_search_vector();
 
---changeset postgres-team:003-add-audit-trigger
---comment: Add audit trail for user changes
+--changeset postgres-team:003-add-audit-table
+--comment: Add audit table for user changes
 CREATE TABLE user_audit (
     audit_id BIGSERIAL PRIMARY KEY,
     user_id BIGINT,
@@ -37,6 +37,8 @@ CREATE TABLE user_audit (
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+--changeset postgres-team:003-add-audit-function splitStatements:false
+--comment: Add audit function and trigger for user changes
 CREATE OR REPLACE FUNCTION audit_user_changes() RETURNS trigger AS $audit_func$
 BEGIN
     IF TG_OP = 'DELETE' THEN
