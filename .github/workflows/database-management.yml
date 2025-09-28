@@ -1,0 +1,165 @@
+name: Database Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+        - create-database
+        - create-rds-instance
+        - list-databases
+        - run-bootstrap
+      database_type:
+        description: 'Database type'
+        required: false
+        type: choice
+        options:
+        - postgresql
+        - mysql
+        - sqlserver
+        - oracle
+      database_name:
+        description: 'Database/Schema name'
+        required: false
+        type: string
+      instance_class:
+        description: 'RDS instance class (for RDS creation)'
+        required: false
+        default: 'db.t3.micro'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  manage-database:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+    - name: Set up Java
+      if: github.event.inputs.action == 'run-bootstrap'
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Liquibase and drivers
+      if: github.event.inputs.action == 'run-bootstrap'
+      run: ./.github/scripts/setup-liquibase.sh
+
+    - name: Create Database
+      if: github.event.inputs.action == 'create-database'
+      run: |
+        if [ -z "${{ github.event.inputs.database_type }}" ] || [ -z "${{ github.event.inputs.database_name }}" ]; then
+          echo "❌ Database type and name are required for create-database action"
+          exit 1
+        fi
+
+        ./.github/scripts/create-database.sh \
+          "${{ github.event.inputs.database_type }}" \
+          "${{ github.event.inputs.database_name }}" \
+          "${{ vars.SECRET_NAME || 'liquibase-databases' }}"
+
+    - name: Create RDS Instance
+      if: github.event.inputs.action == 'create-rds-instance'
+      run: |
+        if [ -z "${{ github.event.inputs.database_type }}" ] || [ -z "${{ github.event.inputs.database_name }}" ]; then
+          echo "❌ Database type and name are required for create-rds-instance action"
+          exit 1
+        fi
+
+        case "${{ github.event.inputs.database_type }}" in
+          postgresql)
+            echo "🐘 Creating PostgreSQL RDS instance"
+            aws rds create-db-instance \
+              --db-instance-identifier "${{ github.event.inputs.database_name }}" \
+              --db-instance-class "${{ github.event.inputs.instance_class }}" \
+              --engine postgres \
+              --engine-version "17.6" \
+              --db-name "${{ github.event.inputs.database_name }}" \
+              --master-username postgres_user \
+              --master-user-password "$(openssl rand -base64 16)" \
+              --allocated-storage 20 \
+              --storage-type gp2 \
+              --no-multi-az \
+              --storage-encrypted
+            ;;
+          mysql)
+            echo "❌ MySQL RDS creation not implemented yet"
+            exit 1
+            ;;
+          sqlserver)
+            echo "❌ SQL Server RDS creation not implemented yet"
+            exit 1
+            ;;
+          oracle)
+            echo "❌ Oracle is not available in RDS"
+            exit 1
+            ;;
+          *)
+            echo "❌ Unsupported database type for RDS: ${{ github.event.inputs.database_type }}"
+            exit 1
+            ;;
+        esac
+
+    - name: List Databases
+      if: github.event.inputs.action == 'list-databases'
+      run: |
+        echo "📋 Current database configurations:"
+        aws secretsmanager get-secret-value \
+          --secret-id "${{ vars.SECRET_NAME || 'liquibase-databases' }}" \
+          --query SecretString --output text | jq -r 'keys[]' | sort
+
+        echo ""
+        echo "📊 RDS Instances:"
+        aws rds describe-db-instances \
+          --query 'DBInstances[*].[DBInstanceIdentifier,Engine,DBInstanceStatus,Endpoint.Address]' \
+          --output table
+
+    - name: Run Bootstrap
+      if: github.event.inputs.action == 'run-bootstrap'
+      run: |
+        if [ ! -f "changelog-bootstrap.xml" ]; then
+          echo "❌ No changelog-bootstrap.xml found"
+          exit 1
+        fi
+
+        if [ -n "${{ github.event.inputs.database_type }}" ]; then
+          # Run bootstrap for specific database type
+          echo "🏗️ Running bootstrap for ${{ github.event.inputs.database_type }}..."
+          ./.github/scripts/configure-database.sh \
+            "${{ github.event.inputs.database_type }}-master" \
+            "${{ vars.SECRET_NAME || 'liquibase-databases' }}" \
+            "false"
+
+          ./.github/scripts/run-liquibase.sh \
+            "${{ github.event.inputs.database_type }}-master" \
+            update --changelog-file=changelog-bootstrap.xml
+        else
+          # Run bootstrap for all available database types
+          echo "🏗️ Running bootstrap for all available database types..."
+          for db_type in postgres mysql sqlserver oracle; do
+            if ./.github/scripts/configure-database.sh \
+                "${db_type}-master" \
+                "${{ vars.SECRET_NAME || 'liquibase-databases' }}" \
+                "false" 2>/dev/null; then
+
+              echo "✅ Running bootstrap for ${db_type}..."
+              ./.github/scripts/run-liquibase.sh "${db_type}-master" update --changelog-file=changelog-bootstrap.xml
+            else
+              echo "ℹ️ No ${db_type} master configuration found, skipping"
+            fi
+          done
+        fi
