@@ -109,6 +109,28 @@ jobs:
           ${{ vars.SECRET_NAME || 'liquibase-databases' }} \
           ${{ needs.discover-databases.outputs.test-mode }}
 
+    - name: Create database if needed
+      if: needs.discover-databases.outputs.test-mode == 'false'
+      run: |
+        echo "🏗️ Ensuring database exists for ${{ matrix.database }}..."
+
+        # Extract database type and name from the configuration
+        DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
+        DB_NAME=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/.*\///' | sed 's/;.*//' | sed 's/?.*//') # Extract DB name from URL
+
+        # Only create database in deploy mode (not test mode)
+        if [ "$DB_TYPE" = "postgresql" ]; then
+          ./.github/scripts/create-database.sh postgresql "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+        elif [ "$DB_TYPE" = "mysql" ]; then
+          ./.github/scripts/create-database.sh mysql "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+        elif [ "$DB_TYPE" = "sqlserver" ]; then
+          ./.github/scripts/create-database.sh sqlserver "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+        elif [ "$DB_TYPE" = "oracle" ]; then
+          ./.github/scripts/create-database.sh oracle "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+        else
+          echo "ℹ️ Unknown database type: $DB_TYPE - skipping database creation"
+        fi
+
     - name: Validate changelog
       run: |
         if ! ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate; then
