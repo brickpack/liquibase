@@ -172,7 +172,7 @@ GRANT USAGE, SELECT ON user_external_id_seq TO userdb_api;
 GRANT USAGE, SELECT ON organization_external_id_seq TO userdb_api;
 GRANT USAGE, SELECT ON invite_sequence TO userdb_api;
 
---changeset myapp-team:004-create-user-management-functions
+--changeset myapp-team:004-create-user-management-functions splitStatements:false
 --comment: Create utility functions for user management
 CREATE OR REPLACE FUNCTION get_user_display_name(user_id_param BIGINT)
 RETURNS VARCHAR(200) AS $$
