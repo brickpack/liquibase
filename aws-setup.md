@@ -4,9 +4,13 @@
 
 Create an IAM role that GitHub Actions can assume using OpenID Connect. This is more secure than using long-lived access keys.
 
-### Trust Policy
+### Option A: Using AWS CLI (Recommended)
 
-Create a new IAM role with this trust policy (replace `YOUR_GITHUB_USERNAME` and `YOUR_REPO_NAME`):
+Follow these exact steps to create the role with CLI commands:
+
+#### Step 1: Create Trust Policy File
+
+Create a file called `trust-policy.json` (replace `YOUR_ACCOUNT_ID`, `YOUR_GITHUB_USERNAME` and `YOUR_REPO_NAME`):
 
 ```json
 {
@@ -23,7 +27,12 @@ Create a new IAM role with this trust policy (replace `YOUR_GITHUB_USERNAME` and
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/main",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/feature/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/hotfix/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:pull_request"
+          ]
         }
       }
     }
@@ -31,9 +40,26 @@ Create a new IAM role with this trust policy (replace `YOUR_GITHUB_USERNAME` and
 }
 ```
 
-### Permission Policy
+> **Security Note**: This trust policy now restricts access to specific branch patterns instead of using a wildcard (*). This follows AWS security best practices by limiting which GitHub Actions can assume the role to:
+>
+> - Main branch deployments (`ref:refs/heads/main`)
+> - Feature branches (`ref:refs/heads/feature/*`)
+> - Hotfix branches (`ref:refs/heads/hotfix/*`)
+> - Pull request validations (`pull_request`)
 
-Attach the following policy to the role:
+#### Step 2: Create the IAM Role
+
+```bash
+# Create the IAM role with the trust policy
+aws iam create-role \
+  --role-name GitHubActionsLiquibaseRole \
+  --assume-role-policy-document file://trust-policy.json \
+  --description "Role for GitHub Actions to access Liquibase database credentials"
+```
+
+#### Step 3: Create Permission Policy File
+
+Create a file called `permissions-policy.json`:
 
 ```json
 {
@@ -60,6 +86,48 @@ Attach the following policy to the role:
   ]
 }
 ```
+
+#### Step 4: Attach the Permission Policy to the Role
+
+```bash
+# Attach the permission policy to the role
+aws iam put-role-policy \
+  --role-name GitHubActionsLiquibaseRole \
+  --policy-name LiquibaseSecretsAccess \
+  --policy-document file://permissions-policy.json
+```
+
+#### Step 5: Get the Role ARN (save this for GitHub configuration)
+
+```bash
+# Get the role ARN - you'll need this for GitHub repository variables
+aws iam get-role \
+  --role-name GitHubActionsLiquibaseRole \
+  --query 'Role.Arn' \
+  --output text
+```
+
+Copy the ARN output - it will look like: `arn:aws:iam::123456789012:role/GitHubActionsLiquibaseRole`
+
+### Option B: Using AWS Console (Alternative)
+
+If you prefer using the AWS Console:
+
+1. **Go to IAM Console** → Roles → Create role
+2. **Select trusted entity**: Web identity
+3. **Identity provider**: token.actions.githubusercontent.com
+4. **Audience**: sts.amazonaws.com
+5. **GitHub organization**: YOUR_GITHUB_USERNAME
+6. **GitHub repository**: YOUR_REPO_NAME
+7. **GitHub branch**: main (you can add more branches later)
+8. **Next** → Skip adding permissions for now
+9. **Role name**: GitHubActionsLiquibaseRole
+10. **Create role**
+11. **Go back to the role** → Trust relationships → Edit trust policy
+12. **Replace the policy** with the JSON from Step 1 above
+13. **Add permissions** → Create inline policy → JSON → paste the permissions policy JSON
+14. **Policy name**: LiquibaseSecretsAccess
+15. **Create policy**
 
 ## 2. Set up GitHub OIDC Provider (if not already exists)
 
@@ -118,6 +186,7 @@ The secret should be stored as JSON with all databases in a single object. Each 
 ### Database Type Detection
 
 The `type` field is optional - the pipeline can auto-detect database type from the JDBC URL:
+
 - URLs containing `postgresql` → `postgresql`
 - URLs containing `mysql` → `mysql`
 - URLs containing `sqlserver` or `mssql` → `sqlserver`
@@ -179,6 +248,7 @@ Oracle JDBC drivers require license agreement and cannot be auto-downloaded. For
 3. Use a private Maven repository with the driver
 
 Example custom Oracle driver step:
+
 ```yaml
 - name: Download Oracle driver
   if: contains(matrix.database, 'oracle')
@@ -238,6 +308,7 @@ All database credentials are now stored securely in AWS Secrets Manager. No GitH
 ### Step 1: Create Policy Files
 
 Create `trust-policy.json`:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -253,7 +324,12 @@ Create `trust-policy.json`:
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/main",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/feature/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/hotfix/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:pull_request"
+          ]
         }
       }
     }
@@ -262,6 +338,7 @@ Create `trust-policy.json`:
 ```
 
 Create `permissions-policy.json`:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -338,6 +415,7 @@ git push origin test/pipeline-setup
 ```
 
 The pipeline should:
+
 - ✅ Discover all 4 databases
 - ✅ Download drivers automatically
 - ✅ Run in test mode (no AWS credentials needed)
