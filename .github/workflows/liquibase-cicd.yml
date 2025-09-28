@@ -39,7 +39,7 @@ jobs:
     - name: Discover databases
       id: discover
       run: |
-        databases=$(find . -name "changelog-*.xml" -type f | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
+        databases=$(find . -name "changelog-*.xml" -type f | grep -v "changelog-bootstrap.xml" | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
         echo "Found databases: $databases"
         echo "databases=$databases" >> $GITHUB_OUTPUT
 
