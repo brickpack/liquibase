@@ -1,0 +1,175 @@
+name: Liquibase CI/CD
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      database:
+        description: 'Database to target (or all)'
+        required: false
+        default: 'all'
+        type: string
+      action:
+        description: 'Action to perform'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+        - auto
+        - test
+        - deploy
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  discover-databases:
+    runs-on: ubuntu-latest
+    outputs:
+      databases: ${{ steps.discover.outputs.databases }}
+      test-mode: ${{ steps.determine-mode.outputs.test-mode }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Discover databases
+      id: discover
+      run: |
+        databases=$(find . -name "changelog-*.xml" -type f | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
+        echo "Found databases: $databases"
+        echo "databases=$databases" >> $GITHUB_OUTPUT
+
+    - name: Determine execution mode
+      id: determine-mode
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event.inputs.action }}" == "test" ]]; then
+            echo "test-mode=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
+            echo "test-mode=false" >> $GITHUB_OUTPUT
+          else
+            # Auto mode
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              echo "test-mode=false" >> $GITHUB_OUTPUT
+            else
+              echo "test-mode=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+        elif [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
+          echo "test-mode=false" >> $GITHUB_OUTPUT
+        else
+          echo "test-mode=true" >> $GITHUB_OUTPUT
+        fi
+
+  liquibase:
+    needs: discover-databases
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        database: ${{ fromJson(needs.discover-databases.outputs.databases) }}
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Skip if specific database selected
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.database != 'all' && github.event.inputs.database != matrix.database
+      run: |
+        echo "Skipping ${{ matrix.database }} as ${{ github.event.inputs.database }} was selected"
+        exit 0
+
+    - name: Configure AWS credentials
+      if: needs.discover-databases.outputs.test-mode == 'false'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Liquibase and drivers
+      run: ./.github/scripts/setup-liquibase.sh
+
+    - name: Analyze changelog structure
+      run: ./.github/scripts/analyze-changelog.sh ${{ matrix.database }}
+
+    - name: Configure database connection
+      run: |
+        ./.github/scripts/configure-database.sh \
+          ${{ matrix.database }} \
+          ${{ vars.SECRET_NAME || 'liquibase-databases' }} \
+          ${{ needs.discover-databases.outputs.test-mode }}
+
+    - name: Validate changelog
+      run: ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate
+
+    - name: Run deployment or generate test SQL
+      run: |
+        if [ "${{ needs.discover-databases.outputs.test-mode }}" = "true" ]; then
+          echo "🧪 Running in TEST mode"
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update-sql true
+
+          echo ""
+          echo "🎯 TEST SUMMARY for ${{ matrix.database }}:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Changelog validation: PASSED"
+          echo "✅ SQL generation: COMPLETED"
+          echo "📁 Artifacts will be uploaded for review"
+          echo "🚀 Ready for deployment when merged to main branch"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        else
+          echo "🚀 Running in DEPLOY mode"
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update
+          ./.github/scripts/run-liquibase.sh ${{ matrix.database }} status
+        fi
+
+    - name: Cleanup sensitive files
+      if: always()
+      run: ./.github/scripts/cleanup.sh ${{ matrix.database }}
+
+    - name: Show workflow status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "🎉 Workflow completed successfully for ${{ matrix.database }}"
+        else
+          echo "❌ Workflow failed for ${{ matrix.database }}"
+          echo "🔍 Check the logs above for error details"
+        fi
+
+    - name: Upload test results
+      if: needs.discover-databases.outputs.test-mode == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.database }}
+        path: |
+          planned-changes-${{ matrix.database }}.sql
+          liquibase-${{ matrix.database }}.log
+
+    - name: Upload deployment artifacts
+      if: needs.discover-databases.outputs.test-mode == 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-results-${{ matrix.database }}
+        path: |
+          planned-changes-${{ matrix.database }}.sql
+          liquibase-${{ matrix.database }}.log
+          liquibase-${{ matrix.database }}-output.txt
+
+    - name: Upload logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failure-logs-${{ matrix.database }}
+        path: |
+          liquibase-${{ matrix.database }}.log
+          liquibase-${{ matrix.database }}-output.txt
