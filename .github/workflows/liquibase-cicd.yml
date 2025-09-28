@@ -65,56 +65,8 @@ jobs:
           echo "test-mode=true" >> $GITHUB_OUTPUT
         fi
 
-  bootstrap-databases:
-    needs: discover-databases
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-        aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Setup Liquibase and drivers
-      run: ./.github/scripts/setup-liquibase.sh
-
-    - name: Run database bootstrap
-      run: |
-        if [ -f "changelog-bootstrap.xml" ]; then
-          echo "🏗️ Running database creation bootstrap..."
-
-          # Run bootstrap for each database type if master configs exist
-          for db_type in postgres mysql sqlserver oracle; do
-            echo "🔍 Checking for ${db_type} master configuration..."
-
-            # Configure master database connection
-            if ./.github/scripts/configure-database.sh \
-                "${db_type}-master" \
-                "${{ vars.SECRET_NAME || 'liquibase-databases' }}" \
-                "false" 2>/dev/null; then
-
-              echo "✅ Found ${db_type} master config, running bootstrap..."
-              ./.github/scripts/run-liquibase.sh "${db_type}-master" update --changelog-file=changelog-bootstrap.xml || echo "⚠️ Bootstrap failed for ${db_type}"
-            else
-              echo "ℹ️ No ${db_type} master configuration found, skipping"
-            fi
-          done
-        else
-          echo "ℹ️ No bootstrap changelog found, skipping database creation"
-        fi
-
   liquibase:
-    needs: [discover-databases, bootstrap-databases]
+    needs: discover-databases
     runs-on: ubuntu-latest
     strategy:
       matrix:
