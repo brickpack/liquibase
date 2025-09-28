@@ -250,7 +250,42 @@ If auto-detection fails, specify the `type` field explicitly.
 
 Default: `liquibase-databases` (configurable via GitHub variable `SECRET_NAME`)
 
-### Creating the Secret via AWS CLI
+### Quick Setup with Automated Scripts (Recommended)
+
+This repository includes scripts to automate PostgreSQL RDS creation and secret setup:
+
+#### Step 1: Create RDS PostgreSQL Instance
+
+```bash
+# Create the smallest PostgreSQL RDS instance that matches your configuration
+./create-postgres-rds.sh
+```
+
+This creates:
+- **Instance ID**: `postgres-prod` (matches your changelog)
+- **Database**: `userdb`
+- **Username**: `postgres_user`
+- **Instance Class**: `db.t3.micro` (smallest/cheapest)
+- **Storage**: 20GB
+- **Cost**: ~$15-20/month
+
+#### Step 2: Create AWS Secret with Proper Formatting
+
+```bash
+# Get your RDS endpoint
+RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier postgres-prod --query 'DBInstances[0].Endpoint.Address' --output text)
+
+# Create the secret with validated JSON formatting
+./create-aws-secret.sh $RDS_ENDPOINT
+```
+
+This script:
+- ✅ Validates JSON format to prevent parsing errors
+- ✅ Uses proper escaping and formatting
+- ✅ Matches your `database-credentials-example.json` structure
+- ✅ Includes verification commands
+
+### Manual Secret Creation via AWS CLI
 
 ```bash
 # Create the consolidated secret with multi-database support
@@ -355,7 +390,43 @@ All database credentials are now stored securely in AWS Secrets Manager. No GitH
 - **Least Privilege**: IAM role has minimal required permissions
 - **OIDC Authentication**: No long-lived AWS keys stored in GitHub
 
-## 6. Step-by-Step Setup Guide
+## 6. Quick Start Guide (Using Scripts)
+
+For the fastest setup, use the included automation scripts:
+
+### Prerequisites
+- AWS CLI configured with appropriate permissions
+- `jq` installed for JSON validation (`brew install jq` on macOS)
+
+### Complete Setup in 4 Commands
+
+```bash
+# 1. Create OIDC provider (if needed)
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+# 2. Create IAM role with trust policy (update YOUR_ACCOUNT_ID, YOUR_GITHUB_USERNAME, YOUR_REPO_NAME)
+# First create trust-policy.json and permissions-policy.json files from examples below
+
+# 3. Create PostgreSQL RDS instance
+./create-postgres-rds.sh
+
+# 4. Create AWS secret with proper formatting
+RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier postgres-prod --query 'DBInstances[0].Endpoint.Address' --output text)
+./create-aws-secret.sh $RDS_ENDPOINT
+```
+
+### Configure GitHub Repository
+1. Go to **Settings > Secrets and variables > Actions > Variables**
+2. Add:
+   - `AWS_ROLE_ARN`: Your IAM role ARN
+   - `AWS_REGION`: Your AWS region (e.g., `us-east-1`)
+
+## 7. Detailed Step-by-Step Setup Guide
+
+If you prefer manual setup or need to customize the configuration:
 
 ### Step 1: Create Policy Files
 
@@ -473,25 +544,36 @@ The pipeline should:
 - ✅ Run in test mode (no AWS credentials needed)
 - ✅ Generate SQL previews for all platforms
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 ### Common Issues
 
-1. **"Context access might be invalid" warnings**
+1. **"Secret value can't be converted to key name and value pairs"**
+   - This means your JSON format is invalid in Secrets Manager
+   - **Solution**: Use the `./create-aws-secret.sh` script which validates JSON
+   - **Manual fix**: Delete and recreate the secret with proper formatting
+   - **Console users**: Use "Plaintext" tab, not "Key/value pairs"
+
+2. **"Context access might be invalid" warnings**
    - These are VS Code warnings and don't affect functionality
    - The variables are correctly referenced in the workflow
 
-2. **Oracle driver not found**
+3. **Oracle driver not found**
    - Add custom Oracle driver download step to workflow
    - Or remove Oracle database from your setup
 
-3. **OIDC provider already exists**
+4. **OIDC provider already exists**
    - Skip the OIDC provider creation step
    - Use existing provider
 
-4. **Permission denied on Secrets Manager**
+5. **Permission denied on Secrets Manager**
    - Verify the IAM role ARN in GitHub variables
    - Check the permission policy includes correct secret ARN
+
+6. **RDS connection issues**
+   - Verify security group allows inbound traffic on port 5432
+   - Check VPC settings if using private subnets
+   - Ensure RDS instance is publicly accessible for GitHub Actions
 
 ### Verification Commands
 
@@ -509,7 +591,7 @@ aws secretsmanager get-secret-value --secret-id liquibase-databases --query Secr
 aws iam get-role --role-name GitHubActionsLiquibaseRole
 ```
 
-## 8. Production Checklist
+## 9. Production Checklist
 
 Before deploying to production:
 
