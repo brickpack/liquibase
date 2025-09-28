@@ -1,13 +1,13 @@
 --liquibase formatted sql
 
---changeset postgres-team:003-add-performance-indexes
+--changeset postgres-team:003-add-performance-indexes runInTransaction:false
 --comment: Add performance indexes and constraints
 CREATE INDEX CONCURRENTLY idx_users_email_lower ON users(LOWER(email));
 CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);
 CREATE INDEX CONCURRENTLY idx_organizations_slug_lower ON organizations(LOWER(slug));
 CREATE INDEX CONCURRENTLY idx_user_organizations_role ON user_organizations(role);
 
---changeset postgres-team:003-add-full-text-search
+--changeset postgres-team:003-add-full-text-search runInTransaction:false
 --comment: Add full-text search capabilities
 ALTER TABLE users ADD COLUMN search_vector tsvector;
 
