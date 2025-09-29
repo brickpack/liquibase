@@ -1,10 +1,11 @@
 --liquibase formatted sql
 
 --changeset finance-team:003-create-accounts-indexes
---comment: Create performance indexes for accounts table
+--comment: Create performance indexes for accounts table (skip if Oracle auto-created for UNIQUE constraint)
 --preconditions onFail:MARK_RAN
---precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_ACCOUNTS_CODE'
-CREATE INDEX idx_accounts_code ON accounts(account_code) TABLESPACE FINANCE_DATA;
+--precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_ind_columns WHERE table_name = 'ACCOUNTS' AND column_name = 'ACCOUNT_CODE'
+-- Skip creating index - Oracle automatically creates index for UNIQUE constraint
+-- If needed later, use: CREATE INDEX idx_accounts_code ON accounts(account_code) TABLESPACE FINANCE_DATA;
 
 --changeset finance-team:003-create-accounts-type-index
 --comment: Create index for account type lookups
