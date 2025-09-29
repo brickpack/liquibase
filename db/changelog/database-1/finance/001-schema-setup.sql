@@ -1,4 +1,5 @@
 --liquibase formatted sql
+-- Force checksum refresh for proper deployment
 
 --changeset finance-team:001-create-tablespace
 --comment: Create dedicated tablespace for finance data
