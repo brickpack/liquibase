@@ -5,10 +5,10 @@ echo "📦 Setting up Liquibase and database drivers..."
 
 # Install SQL Server command line tools
 echo "📦 Installing SQL Server tools..."
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
 curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-sudo apt-get update
-sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+sudo apt-get update -qq
+sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
 export PATH="$PATH:/opt/mssql-tools/bin"
 
