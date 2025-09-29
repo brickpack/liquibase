@@ -111,9 +111,14 @@ else
         if [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([0-9]+):([^/?]+) ]]; then
             HOST="${BASH_REMATCH[1]}"
             PORT="${BASH_REMATCH[2]}"
-            SERVICE="${BASH_REMATCH[3]}"
-            DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SERVICE}"
+            ORIGINAL_SERVICE="${BASH_REMATCH[3]}"
+
+            # Use standard RDS Oracle service name (ORCL is the default)
+            # RDS Oracle instances typically use ORCL as the service name
+            SERVICE_NAME="ORCL"
+            DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SERVICE_NAME}"
             echo "🔧 Converted Oracle URL from SID to Service Name format"
+            echo "📝 Using standard RDS Oracle service name: ${SERVICE_NAME}"
         fi
     fi
 
