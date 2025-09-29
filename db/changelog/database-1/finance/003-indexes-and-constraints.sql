@@ -32,17 +32,29 @@ CREATE INDEX idx_transactions_date ON transactions(transaction_date, status) TAB
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_TRANS_DETAILS_ACCOUNT'
 CREATE INDEX idx_trans_details_account ON transaction_details(account_id, transaction_id) TABLESPACE FINANCE_DATA;
 
---changeset finance-team:003-create-balanced-transaction-constraint
---comment: Create constraint to ensure transactions are balanced
+--changeset finance-team:003-create-balanced-transaction-constraint splitStatements:false
+--comment: Oracle doesn't support subqueries in CHECK constraints - use trigger instead
 --preconditions onFail:MARK_RAN
---precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_constraints WHERE constraint_name = 'CHK_TRANSACTION_BALANCED'
-ALTER TABLE transactions ADD CONSTRAINT chk_transaction_balanced
-CHECK (transaction_id IN (
-    SELECT transaction_id
+--precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRG_TRANSACTION_BALANCED'
+CREATE OR REPLACE TRIGGER trg_transaction_balanced
+    BEFORE UPDATE OF status ON transactions
+    FOR EACH ROW
+    WHEN (NEW.status = 'POSTED' AND OLD.status != 'POSTED')
+DECLARE
+    v_debit_total NUMBER(15,2);
+    v_credit_total NUMBER(15,2);
+BEGIN
+    -- Check if transaction is balanced when posting
+    SELECT NVL(SUM(debit_amount), 0), NVL(SUM(credit_amount), 0)
+    INTO v_debit_total, v_credit_total
     FROM transaction_details
-    GROUP BY transaction_id
-    HAVING SUM(debit_amount) = SUM(credit_amount)
-)) DEFERRABLE INITIALLY DEFERRED;
+    WHERE transaction_id = :NEW.transaction_id;
+
+    IF v_debit_total != v_credit_total THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Transaction must be balanced before posting: Debits=' || v_debit_total || ', Credits=' || v_credit_total);
+    END IF;
+END;
+/
 
 --changeset finance-team:003-create-account-balance-view
 --comment: Create view for account balances
