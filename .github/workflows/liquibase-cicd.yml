@@ -22,7 +22,6 @@ on:
         - auto
         - test
         - deploy
-        - reset
 
 permissions:
   id-token: write
@@ -34,7 +33,6 @@ jobs:
     outputs:
       databases: ${{ steps.discover.outputs.databases }}
       test-mode: ${{ steps.determine-mode.outputs.test-mode }}
-      reset-mode: ${{ steps.determine-mode.outputs.reset-mode }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -64,10 +62,6 @@ jobs:
           elif [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
             echo "🚀 Manual deploy mode requested"
             echo "test-mode=false" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.inputs.action }}" == "reset" ]]; then
-            echo "🔄 Manual reset mode requested - will clear tracking and redeploy"
-            echo "test-mode=false" >> $GITHUB_OUTPUT
-            echo "reset-mode=true" >> $GITHUB_OUTPUT
           else
             # Auto mode - never deploy in manual auto mode, always test
             echo "🧪 Manual auto mode - running tests only"
@@ -334,41 +328,6 @@ jobs:
 
         echo "✅ Database creation completed for: $DB_NAME"
 
-    - name: Reset Liquibase tracking (if requested)
-      if: needs.discover-databases.outputs.reset-mode == 'true'
-      run: |
-        echo "🔄 RESET MODE: Dropping Liquibase tracking tables to force complete re-deployment"
-        echo "⚠️ This will cause ALL changesets to be re-executed"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-        # Create a simple SQL script to drop Liquibase tables
-        cat > reset_liquibase.sql << 'EOF'
-        --liquibase formatted sql
-        --changeset reset:drop-liquibase-tables
-        BEGIN
-            EXECUTE IMMEDIATE 'DROP TABLE DATABASECHANGELOG CASCADE CONSTRAINTS';
-            EXCEPTION WHEN OTHERS THEN
-                IF SQLCODE != -942 THEN RAISE; END IF; -- Ignore table not found
-        END;
-        /
-
-        BEGIN
-            EXECUTE IMMEDIATE 'DROP TABLE DATABASECHANGELOGLOCK CASCADE CONSTRAINTS';
-            EXCEPTION WHEN OTHERS THEN
-                IF SQLCODE != -942 THEN RAISE; END IF; -- Ignore table not found
-        END;
-        /
-        EOF
-
-        # Execute the reset using Liquibase's sql command
-        if liquibase --defaults-file="liquibase-${{ matrix.database }}.properties" execute-sql --sql-file="reset_liquibase.sql"; then
-            echo "✅ Liquibase tracking tables dropped successfully"
-        else
-            echo "⚠️ Failed to drop tracking tables (they may not exist yet)"
-        fi
-
-        rm -f reset_liquibase.sql
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     - name: Validate changelog
       run: |
