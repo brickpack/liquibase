@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.25.xsd">
+
+    <!-- Oracle Database - Finance Schema -->
+    <include file="db/changelog/database-1/finance/001-schema-setup.sql"/>
+    <include file="db/changelog/database-1/finance/002-transactions.sql"/>
+    <include file="db/changelog/database-1/finance/003-indexes-and-constraints.sql"/>
+    <include file="db/changelog/database-1/finance/004-seed-data.sql"/>
+
+</databaseChangeLog>
