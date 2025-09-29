@@ -259,78 +259,10 @@ case "$DATABASE_TYPE" in
         ;;
 
     oracle)
-        echo "🏛️ Setting up Oracle schema creation..."
-
-        # Look for master connection
-        MASTER_CONFIG=$(echo "$SECRET_JSON" | jq -r '.["oracle-master"] // .["oracle-system"] // empty')
-
-        if [ -z "$MASTER_CONFIG" ] || [ "$MASTER_CONFIG" = "null" ]; then
-            echo "❌ No Oracle master configuration found in secrets"
-            echo "💡 Required: oracle-master or oracle-system configuration"
-            exit 1
-        fi
-
-        MASTER_URL=$(echo "$MASTER_CONFIG" | jq -r '.url')
-        MASTER_USER=$(echo "$MASTER_CONFIG" | jq -r '.username')
-        MASTER_PASS=$(echo "$MASTER_CONFIG" | jq -r '.password')
-
-        # Extract host and port from JDBC URL
-        HOST=$(echo "$MASTER_URL" | sed 's|.*://\([^:/]*\).*|\1|')
-        PORT=$(echo "$MASTER_URL" | sed 's|.*://[^:]*:\([0-9]*\).*|\1|')
-        if [ "$PORT" = "$MASTER_URL" ]; then PORT=1521; fi
-
-        # Extract service name or SID
-        SERVICE=$(echo "$MASTER_URL" | sed 's|.*[:/]\([^?]*\).*|\1|')
-
-        echo "🔗 Connecting to Oracle server: $HOST:$PORT/$SERVICE"
-
-        # Check if user/schema already exists
-        USER_EXISTS=$(sqlplus -s "$MASTER_USER/$MASTER_PASS@$HOST:$PORT/$SERVICE" <<EOF
-SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
-SELECT COUNT(*) FROM dba_users WHERE username=UPPER('$DATABASE_NAME');
-EXIT;
-EOF
-        )
-
-        if [ "$(echo $USER_EXISTS | tr -d ' ')" = "1" ]; then
-            echo "ℹ️ Oracle user/schema $DATABASE_NAME already exists, skipping creation"
-        else
-            echo "📝 Creating Oracle user/schema $DATABASE_NAME..."
-
-            # Generate secure password
-            SCHEMA_PASS=$(openssl rand -base64 16)
-
-            sqlplus -s "$MASTER_USER/$MASTER_PASS@$HOST:$PORT/$SERVICE" <<EOF
-CREATE TABLESPACE ${DATABASE_NAME}_DATA
-    DATAFILE '${DATABASE_NAME}_data01.dbf' SIZE 100M
-    AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED;
-
-CREATE USER $DATABASE_NAME IDENTIFIED BY "$SCHEMA_PASS"
-    DEFAULT TABLESPACE ${DATABASE_NAME}_DATA
-    QUOTA UNLIMITED ON ${DATABASE_NAME}_DATA;
-
-GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE SEQUENCE TO $DATABASE_NAME;
-
-EXIT;
-EOF
-            echo "✅ Oracle user/schema $DATABASE_NAME created successfully"
-        fi
-
-        # Update secrets manager with new schema config
-        NEW_URL="jdbc:oracle:thin:@$HOST:$PORT:$SERVICE"
-        NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
-            --arg name "oracle-$DATABASE_NAME" \
-            --arg url "$NEW_URL" \
-            --arg user "$DATABASE_NAME" \
-            --arg pass "$SCHEMA_PASS" \
-            '. + {($name): {type: "oracle", url: $url, username: $user, password: $pass}}')
-
-        aws secretsmanager put-secret-value \
-            --secret-id "$SECRET_NAME" \
-            --secret-string "$NEW_CONFIG"
-
-        echo "✅ Secrets Manager updated: oracle-$DATABASE_NAME"
-        echo "📝 Schema URL: $NEW_URL"
+        echo "⚡ Skipping Oracle database creation (minimal setup mode)"
+        echo "ℹ️ Assuming Oracle database/schema '$DATABASE_NAME' already exists"
+        echo "💡 If database doesn't exist, Liquibase will show connection errors"
+        echo "🔧 For production Oracle setup, configure schemas manually or use full setup mode"
         ;;
 
     *)
