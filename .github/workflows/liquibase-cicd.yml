@@ -274,8 +274,6 @@ jobs:
       if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
         echo "🏗️ Ensuring database exists for ${{ matrix.database }}..."
-        echo "🔍 Test mode: ${{ needs.discover-databases.outputs.test-mode }}"
-        echo "🔍 Matrix database: ${{ matrix.database }}"
 
         # Extract database type and name from the configuration
         DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
