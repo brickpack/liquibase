@@ -274,6 +274,8 @@ jobs:
       if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
         echo "🏗️ Ensuring database exists for ${{ matrix.database }}..."
+        echo "🔍 Test mode: ${{ needs.discover-databases.outputs.test-mode }}"
+        echo "🔍 Matrix database: ${{ matrix.database }}"
 
         # Extract database type and name from the configuration
         DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
@@ -289,17 +291,35 @@ jobs:
         fi
 
         # Only create database in deploy mode (not test mode)
+        SECRET_NAME="${{ vars.SECRET_NAME || 'liquibase-databases' }}"
+
+        echo "🔧 Creating database: $DB_NAME (type: $DB_TYPE)"
+
         if [ "$DB_TYPE" = "postgresql" ]; then
-          ./.github/scripts/create-database.sh postgresql "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+          if ! ./.github/scripts/create-database.sh postgresql "$DB_NAME" "$SECRET_NAME"; then
+            echo "❌ Failed to create PostgreSQL database: $DB_NAME"
+            exit 1
+          fi
         elif [ "$DB_TYPE" = "mysql" ]; then
-          ./.github/scripts/create-database.sh mysql "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+          if ! ./.github/scripts/create-database.sh mysql "$DB_NAME" "$SECRET_NAME"; then
+            echo "❌ Failed to create MySQL database: $DB_NAME"
+            exit 1
+          fi
         elif [ "$DB_TYPE" = "sqlserver" ]; then
-          ./.github/scripts/create-database.sh sqlserver "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+          if ! ./.github/scripts/create-database.sh sqlserver "$DB_NAME" "$SECRET_NAME"; then
+            echo "❌ Failed to create SQL Server database: $DB_NAME"
+            exit 1
+          fi
         elif [ "$DB_TYPE" = "oracle" ]; then
-          ./.github/scripts/create-database.sh oracle "$DB_NAME" || echo "⚠️ Database may already exist or creation failed - continuing..."
+          if ! ./.github/scripts/create-database.sh oracle "$DB_NAME" "$SECRET_NAME"; then
+            echo "❌ Failed to create Oracle database: $DB_NAME"
+            exit 1
+          fi
         else
           echo "ℹ️ Unknown database type: $DB_TYPE - skipping database creation"
         fi
+
+        echo "✅ Database creation completed for: $DB_NAME"
 
     - name: Validate changelog
       run: |

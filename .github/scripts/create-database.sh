@@ -203,7 +203,7 @@ case "$DATABASE_TYPE" in
         fi
 
         # Update secrets manager with new database config
-        NEW_URL="jdbc:sqlserver://$HOST:$PORT;databaseName=$DATABASE_NAME;encrypt=true;trustServerCertificate=false"
+        NEW_URL="jdbc:sqlserver://$HOST:$PORT;databaseName=$DATABASE_NAME;encrypt=true;trustServerCertificate=true"
         NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
             --arg name "sqlserver-$DATABASE_NAME" \
             --arg url "$NEW_URL" \
