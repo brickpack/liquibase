@@ -107,7 +107,7 @@ CREATE SEQUENCE transaction_audit_seq
     CACHE 50
     NOCYCLE;
 
---changeset finance-team:004-create-audit-trigger
+--changeset finance-team:004-create-audit-trigger splitStatements:false
 --comment: Create audit trigger for transaction status changes
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTIONS_AUDIT_TRG'

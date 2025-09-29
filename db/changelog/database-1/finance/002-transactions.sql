@@ -30,7 +30,7 @@ CREATE SEQUENCE transactions_seq
     CACHE 100
     NOCYCLE;
 
---changeset finance-team:002-create-transaction-trigger
+--changeset finance-team:002-create-transaction-trigger splitStatements:false
 --comment: Create trigger for auto-incrementing transaction IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTIONS_TRG'
@@ -76,7 +76,7 @@ CREATE SEQUENCE transaction_details_seq
     CACHE 100
     NOCYCLE;
 
---changeset finance-team:002-create-transaction-details-trigger
+--changeset finance-team:002-create-transaction-details-trigger splitStatements:false
 --comment: Create trigger for auto-incrementing transaction detail IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTION_DETAILS_TRG'

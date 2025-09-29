@@ -32,7 +32,7 @@ CREATE SEQUENCE accounts_seq
     NOCACHE
     NOCYCLE;
 
---changeset finance-team:001-create-account-trigger
+--changeset finance-team:001-create-account-trigger splitStatements:false
 --comment: Create trigger for auto-incrementing account IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'ACCOUNTS_TRG'
