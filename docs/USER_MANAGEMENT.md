@@ -6,10 +6,10 @@ This system provides a secure, standardized way to create and manage database us
 
 ### Components
 
-1. **Templates** (`db/templates/users/`): Database-specific user creation templates
-2. **Configuration Files** (`db/user-configs/`): YAML files defining user parameters
-3. **Scripts** (`.github/scripts/`): Automation scripts for AWS Secrets Manager integration
-4. **Generated Changesets** (`db/changelog/*/users/`): Final SQL changesets with password placeholders
+1. **User Changesets** (`db/changelog/*/users/`): SQL changesets with password placeholders
+2. **AWS Secrets Manager**: Secure password storage separated from database configurations
+3. **Processing Scripts** (`.github/scripts/`): Automation for password substitution during deployment
+4. **Examples** (`examples/`): Demo user creation workflows
 
 ### Supported Databases
 
@@ -67,13 +67,23 @@ object_privileges: |
   GRANT SELECT, INSERT, UPDATE, DELETE ON transactions TO finance_app;
 ```
 
-### 3. Generate Changeset (when yq is available)
+### 3. Create User Changeset
 
-```bash
-# Generate changeset from configuration
-./.github/scripts/generate-user-changeset.sh oracle \
-  db/user-configs/my-app-user.yaml \
-  db/changelog/database-1/users/001-app-user.sql
+Create your user changeset manually using SQL with password placeholders:
+
+```sql
+--liquibase formatted sql
+
+--changeset user-management:create-finance_app-user
+--comment: Create user finance_app for Oracle
+--preconditions onFail:MARK_RAN
+--precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_users WHERE username = UPPER('finance_app')
+CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}"
+    DEFAULT TABLESPACE FINANCE_DATA
+    TEMPORARY TABLESPACE TEMP;
+
+GRANT CREATE SESSION TO finance_app;
+GRANT CREATE TABLE TO finance_app;
 ```
 
 ### 4. Include in Main Changelog
@@ -100,19 +110,14 @@ The standard Liquibase pipeline will automatically:
 ```
 liquibase/
 ├── .github/scripts/
-│   ├── get-user-password.sh       # Retrieves passwords from AWS
-│   ├── run-user-changeset.sh      # Executes changesets with password substitution
-│   └── generate-user-changeset.sh # Generates changesets from templates
-├── db/
-│   ├── templates/users/            # Database-specific templates
-│   │   ├── postgresql-user-template.sql
-│   │   ├── mysql-user-template.sql
-│   │   ├── sqlserver-user-template.sql
-│   │   └── oracle-user-template.sql
-│   ├── user-configs/               # User configuration files
-│   │   └── examples/
-│   └── changelog/                  # Generated changesets
-│       └── database-1/users/
+│   ├── get-user-password.sh        # Retrieves passwords from AWS
+│   └── process-user-changesets.sh  # Processes changesets with password substitution
+├── db/changelog/                   # User changesets with password placeholders
+│   └── database-1/users/
+│       ├── 001-finance-app-user.sql
+│       └── 002-finance-readonly-user.sql
+├── examples/
+│   └── DEMO_USER_CREATION.md       # User creation demo
 └── docs/
     └── USER_MANAGEMENT.md          # This documentation
 ```
@@ -164,14 +169,17 @@ liquibase/
 
 ## 🔧 Advanced Usage
 
-### Custom Templates
+### Custom User Types
 
-You can create custom templates by copying and modifying the base templates:
+You can create different user types by customizing the SQL changesets:
 
-```bash
-cp db/templates/users/oracle-user-template.sql \
-   db/templates/users/oracle-admin-template.sql
-# Edit the new template for admin users
+```sql
+-- Example: Admin user with elevated privileges
+CREATE USER finance_admin IDENTIFIED BY "{{PASSWORD:finance_admin}}"
+    DEFAULT TABLESPACE FINANCE_DATA
+    TEMPORARY TABLESPACE TEMP;
+
+GRANT DBA TO finance_admin;  -- Admin privileges
 ```
 
 ### Multiple Secret Stores
@@ -188,13 +196,13 @@ Use different secret names for different environments:
 
 ### Batch User Creation
 
-Create multiple users efficiently:
+Create multiple users by adding them to your changelog:
 
-```bash
-for config in db/user-configs/prod-users/*.yaml; do
-  output="db/changelog/database-1/users/$(basename $config .yaml).sql"
-  ./generate-user-changeset.sh oracle "$config" "$output"
-done
+```xml
+<!-- Add multiple user changesets -->
+<include file="db/changelog/database-1/users/001-finance-app-user.sql"/>
+<include file="db/changelog/database-1/users/002-finance-readonly-user.sql"/>
+<include file="db/changelog/database-1/users/003-finance-admin-user.sql"/>
 ```
 
 ## 🚨 Troubleshooting

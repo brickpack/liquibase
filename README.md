@@ -7,7 +7,8 @@ A production-ready, optimized Liquibase CI/CD pipeline supporting PostgreSQL, My
 - ✅ **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
 - ✅ **MySQL**: `mysql-ecommerce` - Deployed successfully
 - ✅ **SQL Server**: `sqlserver-inventory` - Deployed successfully with T-SQL syntax
-- 🏗️ **Oracle**: Ready for implementation
+- ✅ **Oracle**: `oracle-finance` - Deployed successfully to ADMIN schema
+- 🔐 **User Management**: AWS Secrets Manager integration ready
 
 ## 🚀 Performance Optimizations
 
@@ -138,13 +139,13 @@ This tells the pipeline how to connect to your specific database:
   "oracle-master": {
     "type": "oracle",
     "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:ORCL",
-    "username": "sys as sysdba",
+    "username": "admin",
     "password": "master-password"
   },
   "oracle-finance": {
     "type": "oracle",
-    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:finance",
-    "username": "oracle_user",
+    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:ORCL",
+    "username": "admin",
     "password": "app-password"
   }
 }
@@ -248,7 +249,28 @@ If you prefer to create databases manually instead of automatic creation:
 - 🏗️ **Auto-Create**: Creates missing databases automatically
 - 🛡️ **Safe**: Uses `IF NOT EXISTS` for tables, continues on individual failures
 
-## Documentation
+## 🔐 User Management
 
-- `aws-setup.md` - Complete AWS setup guide
-- `SAFETY-TESTING-PLAN.md` - Comprehensive safety testing procedures
+The pipeline includes AWS Secrets Manager integration for secure database user creation:
+
+```bash
+# Add user passwords to a separate secret
+aws secretsmanager create-secret \
+  --name "liquibase-users" \
+  --secret-string '{
+    "finance_app": "SecureAppPassword123!",
+    "finance_readonly": "ReadOnlyPassword456!"
+  }'
+
+# User changesets use password placeholders
+CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
+```
+
+See `docs/USER_MANAGEMENT.md` and `examples/DEMO_USER_CREATION.md` for complete setup guide.
+
+## 📚 Documentation
+
+- `docs/AWS-SETUP.md` - Complete AWS setup guide
+- `docs/ORACLE_SETUP.md` - Oracle database configuration
+- `docs/USER_MANAGEMENT.md` - Database user creation with AWS Secrets Manager
+- `docs/SAFETY-TESTING-PLAN.md` - Comprehensive safety testing procedures

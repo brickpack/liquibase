@@ -21,14 +21,14 @@ Add Oracle credentials to your `liquibase-databases` secret in AWS Secrets Manag
 {
   "oracle-finance": {
     "type": "oracle",
-    "url": "jdbc:oracle:thin:@your-oracle-host:1521:finance",
-    "username": "your_oracle_user",
+    "url": "jdbc:oracle:thin:@your-oracle-host:1521:ORCL",
+    "username": "admin",
     "password": "your_oracle_password"
   }
 }
 ```
 
-**Note**: The pipeline will automatically convert the URL from SID format (`:finance`) to Service Name format (`/ORCL`).
+**Note**: The pipeline connects to the main ORCL database and deploys schemas to the ADMIN user.
 
 ### 3. Oracle User Requirements
 
