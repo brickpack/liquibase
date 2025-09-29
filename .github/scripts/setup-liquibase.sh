@@ -3,31 +3,53 @@ set -e
 
 echo "📦 Setting up Liquibase and database drivers..."
 
-# Install SQL Server command line tools
+# Install SQL Server command line tools (lightweight approach)
 echo "📦 Installing SQL Server tools..."
 
-# Check if Microsoft repository already exists
-if [ ! -f /usr/share/keyrings/microsoft-prod.gpg ]; then
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
-fi
+# Try lightweight sqlcmd from snap first (much faster)
+if command -v snap >/dev/null 2>&1; then
+    echo "🔄 Trying snap-based sqlcmd (faster installation)..."
+    if sudo snap install sqlcmd 2>/dev/null; then
+        echo "✅ Installed sqlcmd via snap"
+        export PATH="$PATH:/snap/bin"
+    else
+        echo "⚠️ Snap sqlcmd failed, falling back to Microsoft packages..."
+        # Fallback to Microsoft packages but with minimal dependencies
+        echo "📦 Installing minimal SQL Server tools..."
 
-# Add repository if not already present
-if [ ! -f /etc/apt/sources.list.d/mssql-release.list ]; then
-    curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-fi
+        # Only install if not already present (cache-friendly)
+        if ! command -v sqlcmd >/dev/null 2>&1; then
+            # Install only essential packages without full tool suite
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update -qq
 
-sudo apt-get update -qq
-
-# Try different package names for SQL Server tools
-if sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev 2>/dev/null; then
-    echo "✅ Installed mssql-tools18"
-    export PATH="$PATH:/opt/mssql-tools18/bin"
-elif sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev 2>/dev/null; then
-    echo "✅ Installed mssql-tools"
-    export PATH="$PATH:/opt/mssql-tools/bin"
+            # Install only the minimal required packages
+            if sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y --no-install-recommends mssql-tools18 2>/dev/null; then
+                echo "✅ Installed minimal mssql-tools18"
+                export PATH="$PATH:/opt/mssql-tools18/bin"
+            else
+                echo "⚠️ Could not install SQL Server tools"
+                echo "ℹ️ SQL Server database creation will be skipped"
+            fi
+        else
+            echo "✅ sqlcmd already available"
+        fi
+    fi
 else
-    echo "⚠️ Could not install SQL Server tools, continuing without sqlcmd"
-    echo "ℹ️ SQL Server database creation will be skipped"
+    echo "⚠️ Snap not available, using traditional installation..."
+    # Fallback to Microsoft packages
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
+    curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+    sudo apt-get update -qq
+
+    if sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y --no-install-recommends mssql-tools18 2>/dev/null; then
+        echo "✅ Installed minimal mssql-tools18"
+        export PATH="$PATH:/opt/mssql-tools18/bin"
+    else
+        echo "⚠️ Could not install SQL Server tools"
+        echo "ℹ️ SQL Server database creation will be skipped"
+    fi
 fi
 
 # Download Liquibase (latest stable version)
