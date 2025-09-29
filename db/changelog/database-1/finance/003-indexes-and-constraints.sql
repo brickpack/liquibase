@@ -33,7 +33,7 @@ CREATE INDEX idx_transactions_date ON transactions(transaction_date, status) TAB
 CREATE INDEX idx_trans_details_account ON transaction_details(account_id, transaction_id) TABLESPACE FINANCE_DATA;
 
 --changeset finance-team:003-create-balanced-transaction-constraint splitStatements:false
---comment: Oracle doesn't support subqueries in CHECK constraints - use trigger instead
+--comment: Oracle does not support subqueries in CHECK constraints - use trigger instead
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRG_TRANSACTION_BALANCED'
 CREATE OR REPLACE TRIGGER trg_transaction_balanced
