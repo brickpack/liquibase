@@ -2,8 +2,7 @@ name: Liquibase CI/CD
 
 on:
   push:
-    branches: ['**']
-    # Exclude main branch for direct pushes - only allow PR merges to main
+    # Only trigger on non-main branches
     branches-ignore: [main]
   pull_request:
     branches: [main]
