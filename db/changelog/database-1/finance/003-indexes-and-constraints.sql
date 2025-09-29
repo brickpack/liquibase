@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset finance-team:003-create-accounts-indexes
+--changeset finance-team:003-skip-accounts-code-index
 --comment: Account code index skipped - Oracle auto-creates index for UNIQUE constraint
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:1 SELECT 1 FROM dual
