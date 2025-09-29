@@ -84,6 +84,18 @@ else
     # Mask password for security
     echo "::add-mask::$DB_PASSWORD"
 
+    # Modify URL for SQL Server SSL compatibility
+    if [ "$DB_TYPE" = "sqlserver" ]; then
+        # Add trustServerCertificate=true if not already present
+        if [[ "$DB_URL" != *"trustServerCertificate"* ]]; then
+            if [[ "$DB_URL" == *"?"* ]]; then
+                DB_URL="${DB_URL}&trustServerCertificate=true"
+            else
+                DB_URL="${DB_URL};trustServerCertificate=true"
+            fi
+        fi
+    fi
+
     # Create configuration file
     cat > "liquibase-$DATABASE.properties" << EOF
 changelogFile=changelog-$DATABASE.xml
