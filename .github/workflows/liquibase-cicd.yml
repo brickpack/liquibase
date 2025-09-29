@@ -97,7 +97,7 @@ jobs:
         java-version: '17'
 
     - name: Setup Liquibase and drivers
-      run: ./.github/scripts/setup-liquibase.sh
+      run: ./.github/scripts/setup-liquibase-minimal.sh
 
     - name: Analyze changelog structure
       run: ./.github/scripts/analyze-changelog.sh ${{ matrix.database }}
@@ -306,10 +306,9 @@ jobs:
             exit 1
           fi
         elif [ "$DB_TYPE" = "sqlserver" ]; then
-          if ! ./.github/scripts/create-database.sh sqlserver "$DB_NAME" "$SECRET_NAME"; then
-            echo "❌ Failed to create SQL Server database: $DB_NAME"
-            exit 1
-          fi
+          echo "⚡ Skipping SQL Server database creation (minimal setup mode)"
+          echo "ℹ️ Assuming SQL Server database '$DB_NAME' already exists"
+          echo "💡 If database doesn't exist, Liquibase will show connection errors"
         elif [ "$DB_TYPE" = "oracle" ]; then
           if ! ./.github/scripts/create-database.sh oracle "$DB_NAME" "$SECRET_NAME"; then
             echo "❌ Failed to create Oracle database: $DB_NAME"
