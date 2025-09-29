@@ -4,11 +4,7 @@
 --comment: Create dedicated tablespace for finance data
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_tablespaces WHERE tablespace_name = 'FINANCE_DATA'
-CREATE TABLESPACE FINANCE_DATA
-    DATAFILE 'finance_data01.dbf' SIZE 100M
-    AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED
-    EXTENT MANAGEMENT LOCAL
-    SEGMENT SPACE MANAGEMENT AUTO;
+CREATE TABLESPACE FINANCE_DATA;
 
 --changeset finance-team:001-create-accounts-table
 --comment: Create chart of accounts table
