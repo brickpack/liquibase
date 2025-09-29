@@ -185,6 +185,7 @@ case "$DATABASE_TYPE" in
             -S "$HOST,$PORT" \
             -U "$MASTER_USER" \
             -P "$MASTER_PASS" \
+            -C \
             -Q "SELECT COUNT(*) FROM sys.databases WHERE name='$DATABASE_NAME'" \
             -h -1 -W 2>/dev/null | tr -d ' ' || echo "0")
 
@@ -196,6 +197,7 @@ case "$DATABASE_TYPE" in
                 -S "$HOST,$PORT" \
                 -U "$MASTER_USER" \
                 -P "$MASTER_PASS" \
+                -C \
                 -Q "CREATE DATABASE [$DATABASE_NAME] COLLATE SQL_Latin1_General_CP1_CI_AS;"
             echo "✅ Database $DATABASE_NAME created successfully"
         fi
