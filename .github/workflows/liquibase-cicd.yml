@@ -60,7 +60,7 @@ jobs:
             fi
           fi
         elif [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
-          echo "test-mode=true" >> $GITHUB_OUTPUT  # TEMPORARILY FORCE TEST MODE
+          echo "test-mode=false" >> $GITHUB_OUTPUT
         else
           echo "test-mode=true" >> $GITHUB_OUTPUT
         fi
