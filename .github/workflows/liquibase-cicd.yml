@@ -277,7 +277,16 @@ jobs:
 
         # Extract database type and name from the configuration
         DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
-        DB_NAME=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/.*\///' | sed 's/;.*//' | sed 's/?.*//') # Extract DB name from URL
+
+        # Extract database name based on database type
+        DB_URL=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=//')
+        if [ "$DB_TYPE" = "sqlserver" ]; then
+          # SQL Server uses databaseName= parameter
+          DB_NAME=$(echo "$DB_URL" | sed -n 's/.*databaseName=\([^;]*\).*/\1/p')
+        else
+          # PostgreSQL, MySQL use /database format
+          DB_NAME=$(echo "$DB_URL" | sed 's/.*\///' | sed 's/;.*//' | sed 's/?.*//')
+        fi
 
         # Only create database in deploy mode (not test mode)
         if [ "$DB_TYPE" = "postgresql" ]; then
