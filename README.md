@@ -108,6 +108,30 @@ This tells the pipeline how to connect to your specific database:
     "url": "jdbc:mysql://your-rds-endpoint:3306/ecommerce",
     "username": "mysql_user",
     "password": "app-password"
+  },
+  "sqlserver-master": {
+    "type": "sqlserver",
+    "url": "jdbc:sqlserver://your-rds-endpoint:1433;databaseName=master",
+    "username": "sa",
+    "password": "master-password"
+  },
+  "sqlserver-inventory": {
+    "type": "sqlserver",
+    "url": "jdbc:sqlserver://your-rds-endpoint:1433;databaseName=inventory",
+    "username": "sqlserver_user",
+    "password": "app-password"
+  },
+  "oracle-master": {
+    "type": "oracle",
+    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:ORCL",
+    "username": "sys as sysdba",
+    "password": "master-password"
+  },
+  "oracle-finance": {
+    "type": "oracle",
+    "url": "jdbc:oracle:thin:@your-rds-endpoint:1521:finance",
+    "username": "oracle_user",
+    "password": "app-password"
   }
 }
 ```
