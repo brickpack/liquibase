@@ -259,10 +259,122 @@ case "$DATABASE_TYPE" in
         ;;
 
     oracle)
-        echo "⚡ Skipping Oracle database creation (minimal setup mode)"
-        echo "ℹ️ Assuming Oracle database/schema '$DATABASE_NAME' already exists"
-        echo "💡 If database doesn't exist, Liquibase will show connection errors"
-        echo "🔧 For production Oracle setup, configure schemas manually or use full setup mode"
+        echo "🔶 Setting up Oracle database creation..."
+
+        # Look for master connection
+        MASTER_CONFIG=$(echo "$SECRET_JSON" | jq -r '.["oracle-master"] // .["oracle-system"] // empty')
+
+        if [ -z "$MASTER_CONFIG" ] || [ "$MASTER_CONFIG" = "null" ]; then
+            echo "❌ No Oracle master configuration found in secrets"
+            echo "💡 Required: oracle-master or oracle-system configuration"
+            echo "⚡ Skipping Oracle database creation - assuming database exists"
+            echo "🔧 If database doesn't exist, Liquibase will show connection errors"
+        else
+            MASTER_URL=$(echo "$MASTER_CONFIG" | jq -r '.url')
+            MASTER_USER=$(echo "$MASTER_CONFIG" | jq -r '.username')
+            MASTER_PASS=$(echo "$MASTER_CONFIG" | jq -r '.password')
+
+            # Extract host and port from JDBC URL
+            HOST=$(echo "$MASTER_URL" | sed 's|.*://\([^:/]*\).*|\1|')
+            PORT=$(echo "$MASTER_URL" | sed 's|.*://[^:]*:\([0-9]*\).*|\1|')
+            if [ "$PORT" = "$MASTER_URL" ]; then PORT=1521; fi
+
+            echo "🔗 Connecting to Oracle server: $HOST:$PORT"
+
+            # Create Oracle database creation SQL script
+            cat > /tmp/create_oracle_db.sql << EOF
+-- Create pluggable database for $DATABASE_NAME
+WHENEVER SQLERROR EXIT SQL.SQLCODE;
+SET PAGESIZE 0;
+SET FEEDBACK OFF;
+SET HEADING OFF;
+
+-- Check if pluggable database already exists
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count
+    FROM v\$pdbs
+    WHERE UPPER(name) = UPPER('$DATABASE_NAME');
+
+    IF v_count = 0 THEN
+        -- Create the pluggable database
+        EXECUTE IMMEDIATE 'CREATE PLUGGABLE DATABASE $DATABASE_NAME
+            ADMIN USER admin IDENTIFIED BY "$MASTER_PASS"
+            DEFAULT TABLESPACE users
+            DATAFILE SIZE 100M AUTOEXTEND ON
+            FILE_NAME_CONVERT = (''/opt/oracle/oradata/ORCL/pdbseed/'', ''/opt/oracle/oradata/ORCL/$DATABASE_NAME/'')';
+
+        -- Open the pluggable database
+        EXECUTE IMMEDIATE 'ALTER PLUGGABLE DATABASE $DATABASE_NAME OPEN';
+
+        -- Set it to open automatically
+        EXECUTE IMMEDIATE 'ALTER PLUGGABLE DATABASE $DATABASE_NAME SAVE STATE';
+
+        DBMS_OUTPUT.PUT_LINE('CREATED: Pluggable database $DATABASE_NAME created successfully');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('EXISTS: Pluggable database $DATABASE_NAME already exists');
+    END IF;
+END;
+/
+EXIT;
+EOF
+
+            # Try to create the database using sqlplus
+            echo "📝 Attempting to create Oracle pluggable database $DATABASE_NAME..."
+
+            if command -v sqlplus >/dev/null 2>&1; then
+                # Use sqlplus if available
+                DB_RESULT=$(echo "exit" | sqlplus -s "$MASTER_USER/$MASTER_PASS@$HOST:$PORT/ORCL" @/tmp/create_oracle_db.sql 2>&1 || echo "ERROR")
+
+                if echo "$DB_RESULT" | grep -q "CREATED:"; then
+                    echo "✅ Oracle pluggable database $DATABASE_NAME created successfully"
+                    DATABASE_CREATED=true
+                elif echo "$DB_RESULT" | grep -q "EXISTS:"; then
+                    echo "ℹ️ Oracle pluggable database $DATABASE_NAME already exists"
+                    DATABASE_CREATED=false
+                else
+                    echo "⚠️ Could not create Oracle database using sqlplus"
+                    echo "🔧 Database may need to be created manually"
+                    echo "📝 Debug output: $DB_RESULT"
+                    DATABASE_CREATED=false
+                fi
+            else
+                echo "⚠️ sqlplus not available - cannot create Oracle database"
+                echo "🔧 Oracle database must be created manually"
+                DATABASE_CREATED=false
+            fi
+
+            # Clean up temporary file
+            rm -f /tmp/create_oracle_db.sql
+
+            # Update secrets manager with new database config (only if database was created or if config doesn't exist)
+            NEW_URL="jdbc:oracle:thin:@$HOST:$PORT:$DATABASE_NAME"
+            EXISTING_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg name "oracle-$DATABASE_NAME" '.[$name] // empty')
+
+            if [ "$DATABASE_CREATED" = "true" ] || [ -z "$EXISTING_CONFIG" ] || [ "$EXISTING_CONFIG" = "null" ]; then
+                echo "🔄 Updating secrets manager configuration..."
+                NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
+                    --arg name "oracle-$DATABASE_NAME" \
+                    --arg url "$NEW_URL" \
+                    --arg user "admin" \
+                    --arg pass "$MASTER_PASS" \
+                    '. + {($name): {type: "oracle", url: $url, username: $user, password: $pass}}')
+
+                if aws secretsmanager put-secret-value \
+                    --secret-id "$SECRET_NAME" \
+                    --secret-string "$NEW_CONFIG" 2>/dev/null; then
+                    echo "✅ Secrets Manager updated: oracle-$DATABASE_NAME"
+                else
+                    echo "⚠️ Could not update Secrets Manager (insufficient permissions)"
+                    echo "ℹ️ Database creation completed successfully, continuing without secrets update"
+                fi
+            else
+                echo "ℹ️ Database configuration already exists in secrets, skipping update"
+            fi
+
+            echo "📝 Database URL: $NEW_URL"
+        fi
         ;;
 
     *)
