@@ -5,12 +5,30 @@ echo "📦 Setting up Liquibase and database drivers..."
 
 # Install SQL Server command line tools
 echo "📦 Installing SQL Server tools..."
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
-curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+
+# Check if Microsoft repository already exists
+if [ ! -f /usr/share/keyrings/microsoft-prod.gpg ]; then
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft-prod.gpg
+fi
+
+# Add repository if not already present
+if [ ! -f /etc/apt/sources.list.d/mssql-release.list ]; then
+    curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+fi
+
 sudo apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
-export PATH="$PATH:/opt/mssql-tools/bin"
+
+# Try different package names for SQL Server tools
+if sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev 2>/dev/null; then
+    echo "✅ Installed mssql-tools18"
+    export PATH="$PATH:/opt/mssql-tools18/bin"
+elif sudo DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev 2>/dev/null; then
+    echo "✅ Installed mssql-tools"
+    export PATH="$PATH:/opt/mssql-tools/bin"
+else
+    echo "⚠️ Could not install SQL Server tools, continuing without sqlcmd"
+    echo "ℹ️ SQL Server database creation will be skipped"
+fi
 
 # Download Liquibase (latest stable version)
 wget -q https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.tar.gz

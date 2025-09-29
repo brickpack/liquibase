@@ -166,8 +166,22 @@ case "$DATABASE_TYPE" in
 
         echo "🔗 Connecting to SQL Server: $HOST:$PORT"
 
+        # Find sqlcmd command (try different possible locations)
+        SQLCMD_CMD=""
+        if command -v sqlcmd >/dev/null 2>&1; then
+            SQLCMD_CMD="sqlcmd"
+        elif command -v /opt/mssql-tools/bin/sqlcmd >/dev/null 2>&1; then
+            SQLCMD_CMD="/opt/mssql-tools/bin/sqlcmd"
+        elif command -v /opt/mssql-tools18/bin/sqlcmd >/dev/null 2>&1; then
+            SQLCMD_CMD="/opt/mssql-tools18/bin/sqlcmd"
+        else
+            echo "❌ sqlcmd not found, cannot create SQL Server database"
+            echo "ℹ️ Database must be created manually before running migrations"
+            exit 1
+        fi
+
         # Check if database already exists
-        DB_EXISTS=$(sqlcmd \
+        DB_EXISTS=$($SQLCMD_CMD \
             -S "$HOST,$PORT" \
             -U "$MASTER_USER" \
             -P "$MASTER_PASS" \
@@ -178,7 +192,7 @@ case "$DATABASE_TYPE" in
             echo "ℹ️ Database $DATABASE_NAME already exists, skipping creation"
         else
             echo "📝 Creating database $DATABASE_NAME..."
-            sqlcmd \
+            $SQLCMD_CMD \
                 -S "$HOST,$PORT" \
                 -U "$MASTER_USER" \
                 -P "$MASTER_PASS" \
