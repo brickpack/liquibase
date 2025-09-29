@@ -20,10 +20,11 @@ CREATE INDEX idx_accounts_type ON accounts(account_type, is_active) TABLESPACE F
 CREATE INDEX idx_transactions_date ON transactions(transaction_date, status) TABLESPACE FINANCE_DATA;
 
 --changeset finance-team:003-create-transactions-reference-index
---comment: Create index for reference number lookups
+--comment: Create index for reference number lookups (skip if Oracle auto-created for UNIQUE constraint)
 --preconditions onFail:MARK_RAN
---precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_TRANSACTIONS_REF'
-CREATE INDEX idx_transactions_ref ON transactions(reference_number) TABLESPACE FINANCE_DATA;
+--precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_ind_columns WHERE table_name = 'TRANSACTIONS' AND column_name = 'REFERENCE_NUMBER'
+-- Skip creating index - Oracle automatically creates index for UNIQUE constraint
+-- If needed later, use: CREATE INDEX idx_transactions_ref ON transactions(reference_number) TABLESPACE FINANCE_DATA;
 
 --changeset finance-team:003-create-transaction-details-account-index
 --comment: Create index for account-based queries
