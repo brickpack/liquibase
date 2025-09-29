@@ -281,75 +281,82 @@ case "$DATABASE_TYPE" in
 
             echo "🔗 Connecting to Oracle server: $HOST:$PORT"
 
-            # Create Oracle database creation SQL script
+            # Create Oracle schema/user creation SQL script
             cat > /tmp/create_oracle_db.sql << EOF
--- Create pluggable database for $DATABASE_NAME
+-- Create dedicated schema/user for $DATABASE_NAME
 WHENEVER SQLERROR EXIT SQL.SQLCODE;
 SET PAGESIZE 0;
 SET FEEDBACK OFF;
 SET HEADING OFF;
 
--- Check if pluggable database already exists
+-- Check if user/schema already exists
 DECLARE
     v_count NUMBER;
+    v_username VARCHAR2(30) := UPPER('$DATABASE_NAME');
 BEGIN
     SELECT COUNT(*) INTO v_count
-    FROM v\$pdbs
-    WHERE UPPER(name) = UPPER('$DATABASE_NAME');
+    FROM dba_users
+    WHERE username = v_username;
 
     IF v_count = 0 THEN
-        -- Create the pluggable database
-        EXECUTE IMMEDIATE 'CREATE PLUGGABLE DATABASE $DATABASE_NAME
-            ADMIN USER admin IDENTIFIED BY "$MASTER_PASS"
-            DEFAULT TABLESPACE users
-            DATAFILE SIZE 100M AUTOEXTEND ON
-            FILE_NAME_CONVERT = (''/opt/oracle/oradata/ORCL/pdbseed/'', ''/opt/oracle/oradata/ORCL/$DATABASE_NAME/'')';
+        -- Create dedicated tablespace for this schema
+        EXECUTE IMMEDIATE 'CREATE TABLESPACE ' || v_username || '_DATA
+            DATAFILE SIZE 100M AUTOEXTEND ON NEXT 10M MAXSIZE 1G';
 
-        -- Open the pluggable database
-        EXECUTE IMMEDIATE 'ALTER PLUGGABLE DATABASE $DATABASE_NAME OPEN';
+        -- Create the user/schema
+        EXECUTE IMMEDIATE 'CREATE USER ' || v_username || '
+            IDENTIFIED BY "$MASTER_PASS"
+            DEFAULT TABLESPACE ' || v_username || '_DATA
+            TEMPORARY TABLESPACE TEMP
+            QUOTA UNLIMITED ON ' || v_username || '_DATA';
 
-        -- Set it to open automatically
-        EXECUTE IMMEDIATE 'ALTER PLUGGABLE DATABASE $DATABASE_NAME SAVE STATE';
+        -- Grant necessary privileges
+        EXECUTE IMMEDIATE 'GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE SEQUENCE TO ' || v_username;
+        EXECUTE IMMEDIATE 'GRANT CREATE SESSION TO ' || v_username;
 
-        DBMS_OUTPUT.PUT_LINE('CREATED: Pluggable database $DATABASE_NAME created successfully');
+        DBMS_OUTPUT.PUT_LINE('CREATED: Oracle schema ' || v_username || ' created successfully');
     ELSE
-        DBMS_OUTPUT.PUT_LINE('EXISTS: Pluggable database $DATABASE_NAME already exists');
+        DBMS_OUTPUT.PUT_LINE('EXISTS: Oracle schema ' || v_username || ' already exists');
     END IF;
 END;
 /
 EXIT;
 EOF
 
-            # Try to create the database using sqlplus
-            echo "📝 Attempting to create Oracle pluggable database $DATABASE_NAME..."
+            # Try to create the schema using sqlplus
+            echo "📝 Attempting to create Oracle schema $DATABASE_NAME..."
 
             if command -v sqlplus >/dev/null 2>&1; then
-                # Use sqlplus if available
-                DB_RESULT=$(echo "exit" | sqlplus -s "$MASTER_USER/$MASTER_PASS@$HOST:$PORT/ORCL" @/tmp/create_oracle_db.sql 2>&1 || echo "ERROR")
+                # Use sqlplus if available - connect to the main Oracle database
+                ORACLE_SERVICE=$(echo "$MASTER_URL" | sed 's|.*[:/]\([^/]*\)$|\1|')
+                DB_RESULT=$(echo "exit" | sqlplus -s "$MASTER_USER/$MASTER_PASS@$HOST:$PORT/$ORACLE_SERVICE" @/tmp/create_oracle_db.sql 2>&1 || echo "ERROR")
 
                 if echo "$DB_RESULT" | grep -q "CREATED:"; then
-                    echo "✅ Oracle pluggable database $DATABASE_NAME created successfully"
+                    echo "✅ Oracle schema $DATABASE_NAME created successfully"
                     DATABASE_CREATED=true
                 elif echo "$DB_RESULT" | grep -q "EXISTS:"; then
-                    echo "ℹ️ Oracle pluggable database $DATABASE_NAME already exists"
+                    echo "ℹ️ Oracle schema $DATABASE_NAME already exists"
                     DATABASE_CREATED=false
                 else
-                    echo "⚠️ Could not create Oracle database using sqlplus"
-                    echo "🔧 Database may need to be created manually"
+                    echo "⚠️ Could not create Oracle schema using sqlplus"
+                    echo "🔧 Schema may need to be created manually"
                     echo "📝 Debug output: $DB_RESULT"
                     DATABASE_CREATED=false
                 fi
             else
-                echo "⚠️ sqlplus not available - cannot create Oracle database"
-                echo "🔧 Oracle database must be created manually"
+                echo "⚠️ sqlplus not available - cannot create Oracle schema"
+                echo "🔧 Oracle schema must be created manually"
                 DATABASE_CREATED=false
             fi
 
             # Clean up temporary file
             rm -f /tmp/create_oracle_db.sql
 
-            # Update secrets manager with new database config (only if database was created or if config doesn't exist)
-            NEW_URL="jdbc:oracle:thin:@$HOST:$PORT:$DATABASE_NAME"
+            # Update secrets manager with new schema config (only if schema was created or if config doesn't exist)
+            # Connect to the main Oracle service but as the new schema user
+            ORACLE_SERVICE=$(echo "$MASTER_URL" | sed 's|.*[:/]\([^/]*\)$|\1|')
+            NEW_URL="jdbc:oracle:thin:@$HOST:$PORT/$ORACLE_SERVICE"
+            SCHEMA_USER=$(echo "$DATABASE_NAME" | tr '[:lower:]' '[:upper:]')
             EXISTING_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg name "oracle-$DATABASE_NAME" '.[$name] // empty')
 
             if [ "$DATABASE_CREATED" = "true" ] || [ -z "$EXISTING_CONFIG" ] || [ "$EXISTING_CONFIG" = "null" ]; then
@@ -357,7 +364,7 @@ EOF
                 NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
                     --arg name "oracle-$DATABASE_NAME" \
                     --arg url "$NEW_URL" \
-                    --arg user "admin" \
+                    --arg user "$SCHEMA_USER" \
                     --arg pass "$MASTER_PASS" \
                     '. + {($name): {type: "oracle", url: $url, username: $user, password: $pass}}')
 
@@ -365,15 +372,17 @@ EOF
                     --secret-id "$SECRET_NAME" \
                     --secret-string "$NEW_CONFIG" 2>/dev/null; then
                     echo "✅ Secrets Manager updated: oracle-$DATABASE_NAME"
+                    echo "📝 Schema User: $SCHEMA_USER"
                 else
                     echo "⚠️ Could not update Secrets Manager (insufficient permissions)"
-                    echo "ℹ️ Database creation completed successfully, continuing without secrets update"
+                    echo "ℹ️ Schema creation completed successfully, continuing without secrets update"
                 fi
             else
                 echo "ℹ️ Database configuration already exists in secrets, skipping update"
             fi
 
-            echo "📝 Database URL: $NEW_URL"
+            echo "📝 Connection URL: $NEW_URL"
+            echo "📝 Schema: $SCHEMA_USER"
         fi
         ;;
 
