@@ -6,7 +6,6 @@
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.25.xsd">
 
     <!-- Oracle Database - Finance Schema -->
-    <include file="reset-oracle-tracking.sql"/>
     <include file="db/changelog/database-1/finance/001-schema-setup.sql"/>
     <include file="db/changelog/database-1/finance/002-transactions.sql"/>
     <include file="db/changelog/database-1/finance/003-indexes-and-constraints.sql"/>
