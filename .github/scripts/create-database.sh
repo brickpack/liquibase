@@ -50,6 +50,7 @@ case "$DATABASE_TYPE" in
             -d postgres \
             -t -c "SELECT COUNT(*) FROM pg_database WHERE datname='$DATABASE_NAME';" 2>/dev/null || echo "0")
 
+        DATABASE_CREATED=false
         if [ "$(echo $DB_EXISTS | tr -d ' ')" = "1" ]; then
             echo "ℹ️ Database $DATABASE_NAME already exists, skipping creation"
         else
@@ -62,22 +63,34 @@ case "$DATABASE_TYPE" in
                 -c "CREATE DATABASE $DATABASE_NAME;" \
                 -c "COMMENT ON DATABASE $DATABASE_NAME IS 'Created by Liquibase pipeline on $(date)';"
             echo "✅ Database $DATABASE_NAME created successfully"
+            DATABASE_CREATED=true
         fi
 
-        # Update secrets manager with new database config
+        # Update secrets manager with new database config (only if database was created or if config doesn't exist)
         NEW_URL="jdbc:postgresql://$HOST:$PORT/$DATABASE_NAME"
-        NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
-            --arg name "postgres-$DATABASE_NAME" \
-            --arg url "$NEW_URL" \
-            --arg user "$MASTER_USER" \
-            --arg pass "$MASTER_PASS" \
-            '. + {($name): {type: "postgresql", url: $url, username: $user, password: $pass}}')
+        EXISTING_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg name "postgres-$DATABASE_NAME" '.[$name] // empty')
 
-        aws secretsmanager put-secret-value \
-            --secret-id "$SECRET_NAME" \
-            --secret-string "$NEW_CONFIG"
+        if [ "$DATABASE_CREATED" = "true" ] || [ -z "$EXISTING_CONFIG" ] || [ "$EXISTING_CONFIG" = "null" ]; then
+            echo "🔄 Updating secrets manager configuration..."
+            NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
+                --arg name "postgres-$DATABASE_NAME" \
+                --arg url "$NEW_URL" \
+                --arg user "$MASTER_USER" \
+                --arg pass "$MASTER_PASS" \
+                '. + {($name): {type: "postgresql", url: $url, username: $user, password: $pass}}')
 
-        echo "✅ Secrets Manager updated: postgres-$DATABASE_NAME"
+            if aws secretsmanager put-secret-value \
+                --secret-id "$SECRET_NAME" \
+                --secret-string "$NEW_CONFIG" 2>/dev/null; then
+                echo "✅ Secrets Manager updated: postgres-$DATABASE_NAME"
+            else
+                echo "⚠️ Could not update Secrets Manager (insufficient permissions)"
+                echo "ℹ️ Database creation completed successfully, continuing without secrets update"
+            fi
+        else
+            echo "ℹ️ Database configuration already exists in secrets, skipping update"
+        fi
+
         echo "📝 Database URL: $NEW_URL"
         ;;
 
@@ -113,6 +126,7 @@ case "$DATABASE_TYPE" in
             -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$DATABASE_NAME';" \
             -s -N 2>/dev/null || echo "0")
 
+        DATABASE_CREATED=false
         if [ "$DB_EXISTS" = "1" ]; then
             echo "ℹ️ Database $DATABASE_NAME already exists, skipping creation"
         else
@@ -124,22 +138,34 @@ case "$DATABASE_TYPE" in
                 -p"$MASTER_PASS" \
                 -e "CREATE DATABASE $DATABASE_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
             echo "✅ Database $DATABASE_NAME created successfully"
+            DATABASE_CREATED=true
         fi
 
-        # Update secrets manager with new database config
+        # Update secrets manager with new database config (only if database was created or if config doesn't exist)
         NEW_URL="jdbc:mysql://$HOST:$PORT/$DATABASE_NAME?useSSL=true&serverTimezone=UTC"
-        NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
-            --arg name "mysql-$DATABASE_NAME" \
-            --arg url "$NEW_URL" \
-            --arg user "$MASTER_USER" \
-            --arg pass "$MASTER_PASS" \
-            '. + {($name): {type: "mysql", url: $url, username: $user, password: $pass}}')
+        EXISTING_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg name "mysql-$DATABASE_NAME" '.[$name] // empty')
 
-        aws secretsmanager put-secret-value \
-            --secret-id "$SECRET_NAME" \
-            --secret-string "$NEW_CONFIG"
+        if [ "$DATABASE_CREATED" = "true" ] || [ -z "$EXISTING_CONFIG" ] || [ "$EXISTING_CONFIG" = "null" ]; then
+            echo "🔄 Updating secrets manager configuration..."
+            NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
+                --arg name "mysql-$DATABASE_NAME" \
+                --arg url "$NEW_URL" \
+                --arg user "$MASTER_USER" \
+                --arg pass "$MASTER_PASS" \
+                '. + {($name): {type: "mysql", url: $url, username: $user, password: $pass}}')
 
-        echo "✅ Secrets Manager updated: mysql-$DATABASE_NAME"
+            if aws secretsmanager put-secret-value \
+                --secret-id "$SECRET_NAME" \
+                --secret-string "$NEW_CONFIG" 2>/dev/null; then
+                echo "✅ Secrets Manager updated: mysql-$DATABASE_NAME"
+            else
+                echo "⚠️ Could not update Secrets Manager (insufficient permissions)"
+                echo "ℹ️ Database creation completed successfully, continuing without secrets update"
+            fi
+        else
+            echo "ℹ️ Database configuration already exists in secrets, skipping update"
+        fi
+
         echo "📝 Database URL: $NEW_URL"
         ;;
 
@@ -189,6 +215,7 @@ case "$DATABASE_TYPE" in
             -Q "SELECT COUNT(*) FROM sys.databases WHERE name='$DATABASE_NAME'" \
             -h -1 -W 2>/dev/null | tr -d ' ' || echo "0")
 
+        DATABASE_CREATED=false
         if [ "$DB_EXISTS" = "1" ]; then
             echo "ℹ️ Database $DATABASE_NAME already exists, skipping creation"
         else
@@ -200,22 +227,34 @@ case "$DATABASE_TYPE" in
                 -C -No \
                 -Q "CREATE DATABASE [$DATABASE_NAME] COLLATE SQL_Latin1_General_CP1_CI_AS;"
             echo "✅ Database $DATABASE_NAME created successfully"
+            DATABASE_CREATED=true
         fi
 
-        # Update secrets manager with new database config
+        # Update secrets manager with new database config (only if database was created or if config doesn't exist)
         NEW_URL="jdbc:sqlserver://$HOST:$PORT;databaseName=$DATABASE_NAME;encrypt=false;trustServerCertificate=true"
-        NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
-            --arg name "sqlserver-$DATABASE_NAME" \
-            --arg url "$NEW_URL" \
-            --arg user "$MASTER_USER" \
-            --arg pass "$MASTER_PASS" \
-            '. + {($name): {type: "sqlserver", url: $url, username: $user, password: $pass}}')
+        EXISTING_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg name "sqlserver-$DATABASE_NAME" '.[$name] // empty')
 
-        aws secretsmanager put-secret-value \
-            --secret-id "$SECRET_NAME" \
-            --secret-string "$NEW_CONFIG"
+        if [ "$DATABASE_CREATED" = "true" ] || [ -z "$EXISTING_CONFIG" ] || [ "$EXISTING_CONFIG" = "null" ]; then
+            echo "🔄 Updating secrets manager configuration..."
+            NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
+                --arg name "sqlserver-$DATABASE_NAME" \
+                --arg url "$NEW_URL" \
+                --arg user "$MASTER_USER" \
+                --arg pass "$MASTER_PASS" \
+                '. + {($name): {type: "sqlserver", url: $url, username: $user, password: $pass}}')
 
-        echo "✅ Secrets Manager updated: sqlserver-$DATABASE_NAME"
+            if aws secretsmanager put-secret-value \
+                --secret-id "$SECRET_NAME" \
+                --secret-string "$NEW_CONFIG" 2>/dev/null; then
+                echo "✅ Secrets Manager updated: sqlserver-$DATABASE_NAME"
+            else
+                echo "⚠️ Could not update Secrets Manager (insufficient permissions)"
+                echo "ℹ️ Database creation completed successfully, continuing without secrets update"
+            fi
+        else
+            echo "ℹ️ Database configuration already exists in secrets, skipping update"
+        fi
+
         echo "📝 Database URL: $NEW_URL"
         ;;
 
