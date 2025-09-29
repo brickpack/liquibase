@@ -102,6 +102,21 @@ else
         fi
     fi
 
+    # Modify URL for Oracle RDS compatibility (use service name format)
+    if [ "$DB_TYPE" = "oracle" ]; then
+        # Convert SID format to Service Name format for RDS Oracle
+        # RDS Oracle uses service names, not SIDs
+        # Convert format from: jdbc:oracle:thin:@host:port:sid
+        # To format: jdbc:oracle:thin:@host:port/service_name
+        if [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([0-9]+):([^/?]+) ]]; then
+            HOST="${BASH_REMATCH[1]}"
+            PORT="${BASH_REMATCH[2]}"
+            SERVICE="${BASH_REMATCH[3]}"
+            DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SERVICE}"
+            echo "🔧 Converted Oracle URL from SID to Service Name format"
+        fi
+    fi
+
     # Create configuration file
     cat > "liquibase-$DATABASE.properties" << EOF
 changelogFile=changelog-$DATABASE.xml
