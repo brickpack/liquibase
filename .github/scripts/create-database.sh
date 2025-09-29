@@ -180,12 +180,12 @@ case "$DATABASE_TYPE" in
             exit 1
         fi
 
-        # Check if database already exists
+        # Check if database already exists (disable encryption for compatibility)
         DB_EXISTS=$($SQLCMD_CMD \
             -S "$HOST,$PORT" \
             -U "$MASTER_USER" \
             -P "$MASTER_PASS" \
-            -C \
+            -C -No \
             -Q "SELECT COUNT(*) FROM sys.databases WHERE name='$DATABASE_NAME'" \
             -h -1 -W 2>/dev/null | tr -d ' ' || echo "0")
 
@@ -197,13 +197,13 @@ case "$DATABASE_TYPE" in
                 -S "$HOST,$PORT" \
                 -U "$MASTER_USER" \
                 -P "$MASTER_PASS" \
-                -C \
+                -C -No \
                 -Q "CREATE DATABASE [$DATABASE_NAME] COLLATE SQL_Latin1_General_CP1_CI_AS;"
             echo "✅ Database $DATABASE_NAME created successfully"
         fi
 
         # Update secrets manager with new database config
-        NEW_URL="jdbc:sqlserver://$HOST:$PORT;databaseName=$DATABASE_NAME;encrypt=true;trustServerCertificate=true"
+        NEW_URL="jdbc:sqlserver://$HOST:$PORT;databaseName=$DATABASE_NAME;encrypt=false;trustServerCertificate=true"
         NEW_CONFIG=$(echo "$SECRET_JSON" | jq \
             --arg name "sqlserver-$DATABASE_NAME" \
             --arg url "$NEW_URL" \

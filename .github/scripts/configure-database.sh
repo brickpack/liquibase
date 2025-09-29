@@ -86,8 +86,14 @@ else
 
     # Modify URL for SQL Server SSL compatibility
     if [ "$DB_TYPE" = "sqlserver" ]; then
-        # Add trustServerCertificate=true if not already present
-        if [[ "$DB_URL" != *"trustServerCertificate"* ]]; then
+        # Add SSL parameters for compatibility with ODBC Driver 18
+        if [[ "$DB_URL" != *"encrypt="* ]]; then
+            if [[ "$DB_URL" == *"?"* ]]; then
+                DB_URL="${DB_URL}&encrypt=false&trustServerCertificate=true"
+            else
+                DB_URL="${DB_URL};encrypt=false;trustServerCertificate=true"
+            fi
+        elif [[ "$DB_URL" != *"trustServerCertificate"* ]]; then
             if [[ "$DB_URL" == *"?"* ]]; then
                 DB_URL="${DB_URL}&trustServerCertificate=true"
             else
