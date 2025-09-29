@@ -102,23 +102,24 @@ else
         fi
     fi
 
-    # Modify URL for Oracle RDS compatibility (use service name format)
+    # Handle Oracle URL format (preserve SID if specified, otherwise use service name)
     if [ "$DB_TYPE" = "oracle" ]; then
-        # Convert SID format to Service Name format for RDS Oracle
-        # RDS Oracle uses service names, not SIDs
-        # Convert format from: jdbc:oracle:thin:@host:port:sid
-        # To format: jdbc:oracle:thin:@host:port/service_name
         if [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([0-9]+):([^/?]+) ]]; then
             HOST="${BASH_REMATCH[1]}"
             PORT="${BASH_REMATCH[2]}"
-            ORIGINAL_SERVICE="${BASH_REMATCH[3]}"
+            SID_OR_SERVICE="${BASH_REMATCH[3]}"
 
-            # Use standard RDS Oracle service name (ORCL is the default)
-            # RDS Oracle instances typically use ORCL as the service name
-            SERVICE_NAME="ORCL"
-            DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SERVICE_NAME}"
-            echo "🔧 Converted Oracle URL from SID to Service Name format"
-            echo "📝 Using standard RDS Oracle service name: ${SERVICE_NAME}"
+            # If the URL already uses SID format (:finance), preserve it
+            # Only convert to service name if using generic names like 'ORCL'
+            if [[ "$SID_OR_SERVICE" == "ORCL" || "$SID_OR_SERVICE" == "XE" ]]; then
+                # Convert to service name format for standard Oracle instances
+                DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SID_OR_SERVICE}"
+                echo "🔧 Using Oracle service name format: ${SID_OR_SERVICE}"
+            else
+                # Keep original SID format for custom database names
+                echo "🔧 Preserving Oracle SID format: ${SID_OR_SERVICE}"
+                echo "📝 Connecting to Oracle database SID: ${SID_OR_SERVICE}"
+            fi
         fi
     fi
 
