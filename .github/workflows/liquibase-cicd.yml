@@ -239,8 +239,8 @@ jobs:
 
           # Check for safety patterns
           SAFETY_CHECKS=0
-          if grep -q "IF NOT EXISTS\|CREATE OR REPLACE" planned-changes-${{ matrix.database }}-validation.sql; then
-            echo "✅ Safety patterns detected (IF NOT EXISTS/CREATE OR REPLACE)"
+          if grep -q "IF NOT EXISTS\|CREATE OR REPLACE\|preconditions onFail:MARK_RAN" planned-changes-${{ matrix.database }}-validation.sql; then
+            echo "✅ Safety patterns detected (IF NOT EXISTS/CREATE OR REPLACE/preconditions)"
             SAFETY_CHECKS=$((SAFETY_CHECKS + 1))
           fi
 
