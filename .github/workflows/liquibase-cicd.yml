@@ -3,8 +3,11 @@ name: Liquibase CI/CD
 on:
   push:
     branches: ['**']
+    # Exclude main branch for direct pushes - only allow PR merges to main
+    branches-ignore: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
     inputs:
       database:
@@ -46,22 +49,31 @@ jobs:
     - name: Determine execution mode
       id: determine-mode
       run: |
+        echo "🔍 Event details:"
+        echo "   Event name: ${{ github.event_name }}"
+        echo "   Action: ${{ github.event.action }}"
+        echo "   PR merged: ${{ github.event.pull_request.merged }}"
+        echo "   Base ref: ${{ github.event.pull_request.base.ref }}"
+        echo "   Head ref: ${{ github.event.pull_request.head.ref }}"
+        echo ""
+
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           if [[ "${{ github.event.inputs.action }}" == "test" ]]; then
+            echo "🧪 Manual test mode requested"
             echo "test-mode=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
+            echo "🚀 Manual deploy mode requested"
             echo "test-mode=false" >> $GITHUB_OUTPUT
           else
-            # Auto mode
-            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-              echo "test-mode=false" >> $GITHUB_OUTPUT
-            else
-              echo "test-mode=true" >> $GITHUB_OUTPUT
-            fi
+            # Auto mode - never deploy in manual auto mode, always test
+            echo "🧪 Manual auto mode - running tests only"
+            echo "test-mode=true" >> $GITHUB_OUTPUT
           fi
-        elif [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
+        elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+          echo "🚀 PR merged to main - running DEPLOYMENT"
           echo "test-mode=false" >> $GITHUB_OUTPUT
         else
+          echo "🧪 Branch push or PR opened/updated - running TESTS only"
           echo "test-mode=true" >> $GITHUB_OUTPUT
         fi
 
@@ -330,7 +342,8 @@ jobs:
     - name: Run deployment or generate test SQL
       run: |
         if [ "${{ needs.discover-databases.outputs.test-mode }}" = "true" ]; then
-          echo "🧪 Running in TEST mode"
+          echo "🧪 Running in TEST mode (branch push or PR validation)"
+          echo "📋 This will validate changesets and generate SQL without making database changes"
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update-sql true
 
           echo ""
@@ -339,10 +352,11 @@ jobs:
           echo "✅ Changelog validation: PASSED"
           echo "✅ SQL generation: COMPLETED"
           echo "📁 Artifacts will be uploaded for review"
-          echo "🚀 Ready for deployment when merged to main branch"
+          echo "🚀 Ready for deployment when PR is merged to main branch"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         else
-          echo "🚀 Running in DEPLOY mode"
+          echo "🚀 Running in DEPLOY mode (PR merged to main)"
+          echo "🏗️ This will create databases and execute changesets in production"
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} status
         fi
