@@ -34,5 +34,8 @@ SELECT 1 FROM DUAL;
 -- GRANT CONNECT TO finance_readonly;
 
 --changeset DM-6010:010
---comment: Add comment to finance_readonly user for documentation
-COMMENT ON USER finance_readonly IS 'Read-only access for reporting and analytics on finance data';
+--comment: Document finance_readonly user (Oracle does not support COMMENT ON USER)
+-- User: finance_readonly
+-- Purpose: Read-only access for reporting and analytics on finance data
+-- Documented in code comments only since Oracle does not support user comments
+SELECT 1 FROM DUAL;
