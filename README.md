@@ -4,12 +4,11 @@ A production-ready, optimized Liquibase CI/CD pipeline supporting PostgreSQL, My
 
 ## Prerequisites
 
-**Before using this pipeline, complete these essential setup steps:**
+**Before using this pipeline, complete the AWS setup:**
 
-1. **AWS Setup**: Configure IAM roles and Secrets Manager → `docs/1-AWS-SETUP.md`
-2. **Safety Testing**: Learn how to test safely via GitHub Actions → `docs/2-SAFETY-TESTING-PLAN.md`
+- **AWS Setup**: Configure IAM roles and Secrets Manager → `docs/1-AWS-SETUP.md`
 
-These are required for the pipeline to function. See the [full documentation](#documentation) below for complete setup.
+This is required for the pipeline to function. See the [full documentation](#documentation) below for complete setup.
 
 ## Current Status - All Databases Working
 
@@ -191,25 +190,46 @@ CREATE TABLE IF NOT EXISTS users (
 EOF
 
 # Copy and customize the changelog template
-cp changelog-postgres-prod.xml changelog-postgres-prod-myappdb.xml
+cp changelog-postgres-prod.xml changelog-postgres-myappdb.xml
 
 # Edit changelog to include your SQL files
-sed -i 's|postgres-prod-server/userdb|postgres-prod-server/myappdb|g' changelog-postgres-prod-myappdb.xml
+sed -i 's|postgres-prod-server/userdb|postgres-prod-server/myappdb|g' changelog-postgres-myappdb.xml
 ```
 
 **IMPORTANT - Filename Mapping:**
-- Changelog file: `changelog-postgres-prod-myappdb.xml`
-- Secret name: `postgres-prod-myappdb`
+- Changelog file: `changelog-postgres-myappdb.xml`
+- Secret name: `postgres-myappdb`
 - **The pipeline extracts the secret name from the changelog filename!**
 - Pattern: `changelog-{SECRET_NAME}.xml` → looks up secret `{SECRET_NAME}`
 
 **Directory naming:** `{server-name}/{database-name}/` - mirrors your actual RDS and database structure.
 
-### 4. Test and Deploy
+## Safety & Testing
+
+### GitHub Actions Testing
+The pipeline automatically tests all changes safely:
+
+- **Feature branches**: Test mode only (no database connections)
+- **Pull requests**: Validation + code review
+- **Main branch**: Deploy mode (after PR approval)
+
+### What to Review in GitHub Actions
+Check the action results for:
+- **SQL Preview**: Download generated SQL files to review changes
+- **Safety Analysis**: Confirms IF NOT EXISTS patterns
+- **Validation Results**: Ensures proper changeset format
+
+### Key Safety Rules
+1. Never merge without GitHub Actions showing green checkmarks
+2. Always review the generated SQL preview files
+3. Use feature branches and code review for all changes
+4. Monitor deployment logs during production runs
+
+### Test and Deploy Workflow
 
 ```bash
 # Commit and test changes
-git add changelog-postgres-prod-myappdb.xml
+git add changelog-postgres-myappdb.xml
 git add db/changelog/postgres-prod-server/myappdb/
 git commit -m "Add myappdb database with initial schema"
 git push origin add-myappdb
@@ -224,22 +244,6 @@ gh pr create --title "Add myappdb database" --body "Adds new myappdb database wi
 # → Pipeline automatically creates myappdb database if it doesn't exist
 # → Then deploys your changesets to the new database
 ```
-
-## Advanced Configuration
-
-### Manual Database Creation
-
-If you prefer to create databases manually instead of automatic creation:
-
-```bash
-# Create database ahead of time (optional)
-./.github/scripts/create-database.sh postgresql myappdb
-./.github/scripts/create-database.sh mysql ecommerce
-./.github/scripts/create-database.sh sqlserver inventory
-./.github/scripts/create-database.sh oracle finance
-```
-
-**Note:** You still need both master and application secrets in AWS Secrets Manager even with manual creation.
 
 ## Pipeline Behavior
 
@@ -275,14 +279,13 @@ aws secretsmanager create-secret \
 CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
 ```
 
-See `docs/4-USER-MANAGEMENT.md` and `docs/5-DEMO-USER-CREATION.md` for complete setup guide.
+See `docs/3-USER-MANAGEMENT.md` and `docs/4-DEMO-USER-CREATION.md` for complete setup guide.
 
 ## Documentation
 
 Follow these docs in order for complete setup:
 
 1. `docs/1-AWS-SETUP.md` - AWS IAM roles and Secrets Manager configuration
-2. `docs/2-SAFETY-TESTING-PLAN.md` - Safety testing procedures via GitHub Actions
-3. `docs/3-ORACLE-SETUP.md` - Oracle database configuration (if using Oracle)
-4. `docs/4-USER-MANAGEMENT.md` - Database user creation with AWS Secrets Manager
-5. `docs/5-DEMO-USER-CREATION.md` - Complete user creation walkthrough
+2. `docs/2-ORACLE-SETUP.md` - Oracle database configuration (if using Oracle)
+3. `docs/3-USER-MANAGEMENT.md` - Database user creation with AWS Secrets Manager
+4. `docs/4-DEMO-USER-CREATION.md` - Complete user creation walkthrough
