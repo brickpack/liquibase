@@ -10,21 +10,6 @@ A production-ready, optimized Liquibase CI/CD pipeline supporting PostgreSQL, My
 
 This is required for the pipeline to function. See the [full documentation](#documentation) below for complete setup.
 
-## Current Status - All Databases Working
-
-- **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
-- **MySQL**: `mysql-ecommerce` - Deployed successfully
-- **SQL Server**: `sqlserver-inventory` - Deployed successfully with T-SQL syntax
-- **Oracle**: `oracle-finance` - Deployed successfully to ADMIN schema
-- **User Management**: AWS Secrets Manager integration ready
-
-## Performance Optimizations
-
-- **Minimal setup**: Lightweight configuration without heavy dependencies
-- **Smart AWS permissions**: Graceful handling of limited Secrets Manager access
-- **Conditional database creation**: Only creates databases when needed
-- **Parallel execution**: Matrix strategy for concurrent database deployments
-
 ## Overview
 
 This pipeline automatically:
@@ -280,6 +265,21 @@ CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
 ```
 
 See `docs/3-USER-MANAGEMENT.md` and `docs/4-DEMO-USER-CREATION.md` for complete setup guide.
+
+## Current Status - All Databases Working
+
+- **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
+- **MySQL**: `mysql-ecommerce` - Deployed successfully
+- **SQL Server**: `sqlserver-inventory` - Deployed successfully with T-SQL syntax
+- **Oracle**: `oracle-finance` - Deployed successfully to ADMIN schema
+- **User Management**: AWS Secrets Manager integration ready
+
+## Performance Optimizations
+
+- **Minimal setup**: Lightweight configuration without heavy dependencies
+- **Smart AWS permissions**: Graceful handling of limited Secrets Manager access
+- **Conditional database creation**: Only creates databases when needed
+- **Parallel execution**: Matrix strategy for concurrent database deployments
 
 ## Documentation
 
