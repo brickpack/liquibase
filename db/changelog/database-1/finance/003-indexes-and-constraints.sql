@@ -1,38 +1,38 @@
 --liquibase formatted sql
 
---changeset DM-5003-create-accounts-indexes
+--changeset DM-5003:003
 --comment: Create performance indexes for accounts table (skip if Oracle auto-created for UNIQUE constraint)
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_ind_columns WHERE table_name = 'ACCOUNTS' AND column_name = 'ACCOUNT_CODE'
 -- Skip creating index - Oracle automatically creates index for UNIQUE constraint
 -- If needed later, use: CREATE INDEX idx_accounts_code ON accounts(account_code) TABLESPACE FINANCE_DATA;
 
---changeset DM-5003-create-accounts-type-index
+--changeset DM-5004:004
 --comment: Create index for account type lookups
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_ACCOUNTS_TYPE'
 CREATE INDEX idx_accounts_type ON accounts(account_type, is_active) TABLESPACE FINANCE_DATA;
 
---changeset DM-5003-create-transactions-date-index
+--changeset DM-5005:005
 --comment: Create index for transaction date queries
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_TRANSACTIONS_DATE'
 CREATE INDEX idx_transactions_date ON transactions(transaction_date, status) TABLESPACE FINANCE_DATA;
 
---changeset DM-5003-create-transactions-reference-index
+--changeset DM-5006:006
 --comment: Create index for reference number lookups (skip if Oracle auto-created for UNIQUE constraint)
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_ind_columns WHERE table_name = 'TRANSACTIONS' AND column_name = 'REFERENCE_NUMBER'
 -- Skip creating index - Oracle automatically creates index for UNIQUE constraint
 -- If needed later, use: CREATE INDEX idx_transactions_ref ON transactions(reference_number) TABLESPACE FINANCE_DATA;
 
---changeset DM-5003-create-transaction-details-account-index
+--changeset DM-5007:007
 --comment: Create index for account-based queries
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_indexes WHERE index_name = 'IDX_TRANS_DETAILS_ACCOUNT'
 CREATE INDEX idx_trans_details_account ON transaction_details(account_id, transaction_id) TABLESPACE FINANCE_DATA;
 
---changeset DM-5003-create-balanced-transaction-constraint splitStatements:false
+--changeset DM-5008:008 splitStatements:false
 --comment: Oracle does not support subqueries in CHECK constraints - use trigger instead
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRG_TRANSACTION_BALANCED'
@@ -56,7 +56,7 @@ BEGIN
 END;
 /
 
---changeset DM-5003-create-account-balance-view
+--changeset DM-5009:009
 --comment: Create view for account balances
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_views WHERE view_name = 'ACCOUNT_BALANCES'
@@ -76,7 +76,7 @@ LEFT JOIN transactions t ON td.transaction_id = t.transaction_id
 WHERE a.is_active = 'Y'
 GROUP BY a.account_id, a.account_code, a.account_name, a.account_type;
 
---changeset DM-5003-create-monthly-summary-view
+--changeset DM-5010:010
 --comment: Create view for monthly financial summaries
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_views WHERE view_name = 'MONTHLY_SUMMARY'
