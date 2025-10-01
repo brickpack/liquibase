@@ -1,18 +1,18 @@
 --liquibase formatted sql
 
---changeset DM-1013:0.1.013 runInTransaction:false
+--changeset DM-1013:013 runInTransaction:false
 --comment: Create performance indexes for user_profiles table (concurrent)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_profiles_display_name ON user_profiles(display_name);
 
---changeset DM-1014:0.1.014 runInTransaction:false
+--changeset DM-1014:014 runInTransaction:false
 --comment: Create performance indexes for user_activity table (concurrent)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_activity_type ON user_activity(activity_type);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_activity_created_at ON user_activity(created_at);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_activity_session_id ON user_activity(session_id);
 
---changeset DM-1015:0.1.015 runInTransaction:false
+--changeset DM-1015:015 runInTransaction:false
 --comment: Create performance indexes for organization_invites table (concurrent)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_organization_invites_org_id ON organization_invites(organization_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_organization_invites_email ON organization_invites(invited_email);

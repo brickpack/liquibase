@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset DM-4006:0.1.006
+--changeset DM-4006:006
 --comment: Add products table for inventory database
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'products') AND type in (N'U')
@@ -14,7 +14,7 @@ CREATE TABLE products (
     updated_at DATETIME2 DEFAULT GETDATE()
 );
 
---changeset DM-4007:0.1.007
+--changeset DM-4007:007
 --comment: Add inventory table with FK to products
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'inventory') AND type in (N'U')

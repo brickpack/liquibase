@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset DM-5005:0.1.005
+--changeset DM-5005:005
 --comment: Create financial transactions table
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_tables WHERE table_name = 'TRANSACTIONS'
@@ -20,7 +20,7 @@ CREATE TABLE transactions (
     posted_date DATE
 ) TABLESPACE FINANCE_DATA;
 
---changeset DM-5006:0.1.006
+--changeset DM-5006:006
 --comment: Create sequence for transaction IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_sequences WHERE sequence_name = 'TRANSACTIONS_SEQ'
@@ -30,7 +30,7 @@ CREATE SEQUENCE transactions_seq
     CACHE 100
     NOCYCLE;
 
---changeset DM-5007:0.1.007
+--changeset DM-5007:007
 --comment: Create trigger for auto-incrementing transaction IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTIONS_TRG'
@@ -49,7 +49,7 @@ BEGIN
 END;
 /
 
---changeset DM-5008:0.1.008
+--changeset DM-5008:008
 --comment: Create transaction line items table
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_tables WHERE table_name = 'TRANSACTION_DETAILS'
@@ -66,7 +66,7 @@ CREATE TABLE transaction_details (
     CONSTRAINT chk_debit_or_credit CHECK ((debit_amount > 0 AND credit_amount = 0) OR (credit_amount > 0 AND debit_amount = 0))
 ) TABLESPACE FINANCE_DATA;
 
---changeset DM-5009:0.1.009
+--changeset DM-5009:009
 --comment: Create sequence for transaction detail IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_sequences WHERE sequence_name = 'TRANSACTION_DETAILS_SEQ'
@@ -76,7 +76,7 @@ CREATE SEQUENCE transaction_details_seq
     CACHE 100
     NOCYCLE;
 
---changeset DM-5010:0.1.010
+--changeset DM-5010:010
 --comment: Create trigger for auto-incrementing transaction detail IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTION_DETAILS_TRG'
