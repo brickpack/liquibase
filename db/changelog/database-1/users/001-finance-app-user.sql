@@ -36,5 +36,8 @@ SELECT 1 FROM DUAL;
 -- No predefined roles needed for this user
 
 --changeset DM-6005:005
---comment: Add comment to finance_app user for documentation
-COMMENT ON USER finance_app IS 'Finance application service account with read/write access to finance schema';
+--comment: Document finance_app user (Oracle does not support COMMENT ON USER)
+-- User: finance_app
+-- Purpose: Finance application service account with read/write access to finance schema
+-- Documented in code comments only since Oracle does not support user comments
+SELECT 1 FROM DUAL;
