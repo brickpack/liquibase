@@ -6,11 +6,11 @@ SECRET_NAME=${2:-"liquibase-databases"}
 TEST_MODE=${3:-"false"}
 
 if [ -z "$DATABASE" ]; then
-    echo "❌ Usage: $0 <database> [secret_name] [test_mode]"
+    echo "Usage: $0 <database> [secret_name] [test_mode]"
     exit 1
 fi
 
-echo "🔧 Configuring database: $DATABASE"
+echo "Configuring database: $DATABASE"
 
 if [ "$TEST_MODE" = "true" ]; then
     # Test mode - offline configuration (no classpath needed for PostgreSQL)
@@ -22,7 +22,7 @@ logLevel=INFO
 logFile=liquibase-$DATABASE.log
 outputFile=liquibase-$DATABASE-output.txt
 EOF
-    echo "✅ Test configuration created"
+    echo "Test configuration created"
 else
     # Production mode - get credentials from AWS
     SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
@@ -34,7 +34,7 @@ else
     DB_TYPE=$(echo "$SECRET_JSON" | jq -r --arg db "$DATABASE" '.[$db].type // empty')
 
     if [ -z "$DB_URL" ] || [ "$DB_URL" = "null" ]; then
-        echo "❌ Database configuration for '$DATABASE' not found in secret '$SECRET_NAME'"
+        echo "Database configuration for '$DATABASE' not found in secret '$SECRET_NAME'"
         echo "Available databases:"
         echo "$SECRET_JSON" | jq -r 'keys[]'
         exit 1
@@ -51,10 +51,10 @@ else
         elif [[ "$DB_URL" == *"oracle"* ]]; then
             DB_TYPE="oracle"
         else
-            echo "❌ Cannot auto-detect database type from URL"
+            echo "Cannot auto-detect database type from URL"
             exit 1
         fi
-        echo "🔍 Auto-detected database type: $DB_TYPE"
+        echo "Auto-detected database type: $DB_TYPE"
     fi
 
     # Set driver configuration
@@ -76,7 +76,7 @@ else
             DRIVER_PATH="drivers/oracle.jar"
             ;;
         *)
-            echo "❌ Unsupported database type: $DB_TYPE"
+            echo "Unsupported database type: $DB_TYPE"
             exit 1
             ;;
     esac
@@ -114,11 +114,11 @@ else
             if [[ "$SID_OR_SERVICE" == "ORCL" || "$SID_OR_SERVICE" == "XE" ]]; then
                 # Convert to service name format for standard Oracle instances
                 DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SID_OR_SERVICE}"
-                echo "🔧 Using Oracle service name format: ${SID_OR_SERVICE}"
+                echo "Using Oracle service name format: ${SID_OR_SERVICE}"
             else
                 # Keep original SID format for custom database names
-                echo "🔧 Preserving Oracle SID format: ${SID_OR_SERVICE}"
-                echo "📝 Connecting to Oracle database SID: ${SID_OR_SERVICE}"
+                echo "Preserving Oracle SID format: ${SID_OR_SERVICE}"
+                echo "Connecting to Oracle database SID: ${SID_OR_SERVICE}"
             fi
         fi
     fi
@@ -143,5 +143,5 @@ logFile=liquibase-$DATABASE.log
 outputFile=liquibase-$DATABASE-output.txt
 EOF
 
-    echo "✅ Production configuration created for $DB_TYPE database"
+    echo "Production configuration created for $DB_TYPE database"
 fi

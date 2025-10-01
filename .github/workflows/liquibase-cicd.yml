@@ -47,7 +47,7 @@ jobs:
     - name: Determine execution mode
       id: determine-mode
       run: |
-        echo "🔍 Event details:"
+        echo "Event details:"
         echo "   Event name: ${{ github.event_name }}"
         echo "   Action: ${{ github.event.action }}"
         echo "   PR merged: ${{ github.event.pull_request.merged }}"
@@ -57,21 +57,21 @@ jobs:
 
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           if [[ "${{ github.event.inputs.action }}" == "test" ]]; then
-            echo "🧪 Manual test mode requested"
+            echo "Manual test mode requested"
             echo "test-mode=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event.inputs.action }}" == "deploy" ]]; then
-            echo "🚀 Manual deploy mode requested"
+            echo "Manual deploy mode requested"
             echo "test-mode=false" >> $GITHUB_OUTPUT
           else
             # Auto mode - never deploy in manual auto mode, always test
-            echo "🧪 Manual auto mode - running tests only"
+            echo "Manual auto mode - running tests only"
             echo "test-mode=true" >> $GITHUB_OUTPUT
           fi
         elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-          echo "🚀 PR merged to main - running DEPLOYMENT"
+          echo "PR merged to main - running DEPLOYMENT"
           echo "test-mode=false" >> $GITHUB_OUTPUT
         else
-          echo "🧪 Branch push or PR opened/updated - running TESTS only"
+          echo "Branch push or PR opened/updated - running TESTS only"
           echo "test-mode=true" >> $GITHUB_OUTPUT
         fi
 
@@ -114,13 +114,13 @@ jobs:
 
     - name: Validate SQL syntax
       run: |
-        echo "🔍 Validating SQL syntax for ${{ matrix.database }}..."
+        echo "Validating SQL syntax for ${{ matrix.database }}..."
 
         # Find all SQL files referenced by this changelog
         SQL_FILES=$(grep -o 'file="[^"]*\.sql"' changelog-${{ matrix.database }}.xml | sed 's/file="//g' | sed 's/"//g')
 
         if [ -z "$SQL_FILES" ]; then
-          echo "ℹ️ No SQL files found to validate"
+          echo "No SQL files found to validate"
           exit 0
         fi
 
@@ -138,7 +138,7 @@ jobs:
             continue
           fi
 
-          echo "🔍 Validating: $sql_file"
+          echo "Validating: $sql_file"
 
           # Check for common SQL syntax issues
           # 1. Check for unterminated quotes
@@ -205,7 +205,7 @@ jobs:
         if [ $VALIDATION_ERRORS -gt 0 ]; then
           echo ""
           echo "❌ SQL validation failed with $VALIDATION_ERRORS error(s)"
-          echo "🔧 Please fix the syntax errors above before proceeding"
+          echo "Please fix the syntax errors above before proceeding"
           exit 1
         else
           echo ""
@@ -214,7 +214,7 @@ jobs:
 
     - name: Liquibase offline validation
       run: |
-        echo "🧪 Running Liquibase offline validation for ${{ matrix.database }}..."
+        echo "Running Liquibase offline validation for ${{ matrix.database }}..."
 
         # Create temporary offline configuration for validation
         cat > liquibase-${{ matrix.database }}-validation.properties << 'EOF'
@@ -283,7 +283,7 @@ jobs:
     - name: Create database if needed
       if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
-        echo "🏗️ Ensuring database exists for ${{ matrix.database }}..."
+        echo "Ensuring database exists for ${{ matrix.database }}..."
 
         # Extract database type and name from the configuration
         DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
@@ -301,7 +301,7 @@ jobs:
         # Only create database in deploy mode (not test mode)
         SECRET_NAME="${{ vars.SECRET_NAME || 'liquibase-databases' }}"
 
-        echo "🔧 Creating database: $DB_NAME (type: $DB_TYPE)"
+        echo "Creating database: $DB_NAME (type: $DB_TYPE)"
 
         if [ "$DB_TYPE" = "postgresql" ]; then
           if ! ./.github/scripts/create-database.sh postgresql "$DB_NAME" "$SECRET_NAME"; then
@@ -315,15 +315,15 @@ jobs:
           fi
         elif [ "$DB_TYPE" = "sqlserver" ]; then
           echo "⚡ Skipping SQL Server database creation (minimal setup mode)"
-          echo "ℹ️ Assuming SQL Server database '$DB_NAME' already exists"
-          echo "💡 If database doesn't exist, Liquibase will show connection errors"
+          echo "Assuming SQL Server database '$DB_NAME' already exists"
+          echo "If database doesn't exist, Liquibase will show connection errors"
         elif [ "$DB_TYPE" = "oracle" ]; then
           if ! ./.github/scripts/create-database.sh oracle "$DB_NAME" "$SECRET_NAME"; then
             echo "❌ Failed to create Oracle database: $DB_NAME"
             exit 1
           fi
         else
-          echo "ℹ️ Unknown database type: $DB_TYPE - skipping database creation"
+          echo "Unknown database type: $DB_TYPE - skipping database creation"
         fi
 
         echo "✅ Database creation completed for: $DB_NAME"
@@ -332,7 +332,7 @@ jobs:
     - name: Validate changelog
       run: |
         if ! ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate; then
-          echo "⚠️ Validation failed, likely due to checksum mismatch. Clearing checksums..."
+          echo "Validation failed, likely due to checksum mismatch. Clearing checksums..."
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} clear-checksums
           echo "✅ Checksums cleared. Re-running validation..."
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} validate
@@ -341,7 +341,7 @@ jobs:
     - name: Run deployment or generate test SQL
       run: |
         if [ "${{ needs.discover-databases.outputs.test-mode }}" = "true" ]; then
-          echo "🧪 Running in TEST mode (branch push or PR validation)"
+          echo "Running in TEST mode (branch push or PR validation)"
           echo "📋 This will validate changesets and generate SQL without making database changes"
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update-sql true
 
@@ -351,11 +351,11 @@ jobs:
           echo "✅ Changelog validation: PASSED"
           echo "✅ SQL generation: COMPLETED"
           echo "📁 Artifacts will be uploaded for review"
-          echo "🚀 Ready for deployment when PR is merged to main branch"
+          echo "Ready for deployment when PR is merged to main branch"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         else
-          echo "🚀 Running in DEPLOY mode (PR merged to main)"
-          echo "🏗️ This will create databases and execute changesets in production"
+          echo "Running in DEPLOY mode (PR merged to main)"
+          echo "This will create databases and execute changesets in production"
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} status
         fi
@@ -368,10 +368,10 @@ jobs:
       if: always()
       run: |
         if [ "${{ job.status }}" = "success" ]; then
-          echo "🎉 Workflow completed successfully for ${{ matrix.database }}"
+          echo "Workflow completed successfully for ${{ matrix.database }}"
         else
           echo "❌ Workflow failed for ${{ matrix.database }}"
-          echo "🔍 Check the logs above for error details"
+          echo "Check the logs above for error details"
         fi
 
     - name: Upload test results

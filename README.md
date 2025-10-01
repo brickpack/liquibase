@@ -2,30 +2,30 @@
 
 A production-ready, optimized Liquibase CI/CD pipeline supporting PostgreSQL, MySQL, SQL Server, and Oracle with AWS integration and automated database creation.
 
-## ✨ Current Status - All Databases Working!
+## Current Status - All Databases Working
 
-- ✅ **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
-- ✅ **MySQL**: `mysql-ecommerce` - Deployed successfully
-- ✅ **SQL Server**: `sqlserver-inventory` - Deployed successfully with T-SQL syntax
-- ✅ **Oracle**: `oracle-finance` - Deployed successfully to ADMIN schema
-- 🔐 **User Management**: AWS Secrets Manager integration ready
+- **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
+- **MySQL**: `mysql-ecommerce` - Deployed successfully
+- **SQL Server**: `sqlserver-inventory` - Deployed successfully with T-SQL syntax
+- **Oracle**: `oracle-finance` - Deployed successfully to ADMIN schema
+- **User Management**: AWS Secrets Manager integration ready
 
-## 🚀 Performance Optimizations
+## Performance Optimizations
 
-- **⚡ 60-75 seconds faster**: Minimal setup without heavy Microsoft SQL Server tools
-- **🛡️ Smart AWS permissions**: Graceful handling of limited Secrets Manager access
-- **🎯 Conditional database creation**: Only creates databases when needed
-- **📊 Parallel execution**: Matrix strategy for concurrent database deployments
+- **Minimal setup**: Lightweight configuration without heavy dependencies
+- **Smart AWS permissions**: Graceful handling of limited Secrets Manager access
+- **Conditional database creation**: Only creates databases when needed
+- **Parallel execution**: Matrix strategy for concurrent database deployments
 
 ## Overview
 
 This pipeline automatically:
 
-- 🔍 **Discovers databases** from changelog files
-- 🌿 **Tests on feature branches** (offline validation)
-- 🚀 **Deploys on main branch** (after PR approval)
-- 🏗️ **Creates databases** automatically if they don't exist
-- 🛡️ **Uses safety patterns** (`IF NOT EXISTS` for tables, `CREATE OR REPLACE` for functions only)
+- **Discovers databases** from changelog files
+- **Tests on feature branches** (offline validation)
+- **Deploys on main branch** (after PR approval)
+- **Creates databases** automatically if they don't exist
+- **Uses safety patterns** (`IF NOT EXISTS` for tables, `CREATE OR REPLACE` for functions only)
 
 **Directory Structure:**
 ```text
@@ -188,7 +188,7 @@ cp changelog-postgres-prod.xml changelog-postgres-prod-myappdb.xml
 sed -i 's|postgres-prod-server/userdb|postgres-prod-server/myappdb|g' changelog-postgres-prod-myappdb.xml
 ```
 
-**🔑 IMPORTANT - Filename Mapping:**
+**IMPORTANT - Filename Mapping:**
 - Changelog file: `changelog-postgres-prod-myappdb.xml`
 - Secret name: `postgres-prod-myappdb`
 - **The pipeline extracts the secret name from the changelog filename!**
@@ -236,20 +236,20 @@ If you prefer to create databases manually instead of automatic creation:
 
 | Branch Type | Action | AWS Credentials | Database Connection |
 |-------------|--------|----------------|-------------------|
-| Feature branches | Test & validate | ❌ Not needed | Offline mode |
-| Pull requests | Test & preview | ❌ Not needed | Offline mode |
-| Main branch (after PR merge) | Deploy changes | ✅ Required | Live databases |
+| Feature branches | Test & validate | Not needed | Offline mode |
+| Pull requests | Test & preview | Not needed | Offline mode |
+| Main branch (after PR merge) | Deploy changes | Required | Live databases |
 
 ## Features
 
-- 🔍 **Dynamic Discovery**: Automatically finds databases from changelog files
-- 🌿 **Branch-Aware**: Test mode on branches, deploy mode on main
-- 🔒 **Secure**: No credentials needed for testing
-- 🚀 **Parallel**: All databases deploy simultaneously
-- 🏗️ **Auto-Create**: Creates missing databases automatically
-- 🛡️ **Safe**: Uses `IF NOT EXISTS` for tables, continues on individual failures
+- **Dynamic Discovery**: Automatically finds databases from changelog files
+- **Branch-Aware**: Test mode on branches, deploy mode on main
+- **Secure**: No credentials needed for testing
+- **Parallel**: All databases deploy simultaneously
+- **Auto-Create**: Creates missing databases automatically
+- **Safe**: Uses `IF NOT EXISTS` for tables, continues on individual failures
 
-## 🔐 User Management
+## User Management
 
 The pipeline includes AWS Secrets Manager integration for secure database user creation:
 
@@ -268,7 +268,7 @@ CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
 
 See `docs/USER_MANAGEMENT.md` and `examples/DEMO_USER_CREATION.md` for complete setup guide.
 
-## 📚 Documentation
+## Documentation
 
 - `docs/AWS-SETUP.md` - Complete AWS setup guide
 - `docs/ORACLE_SETUP.md` - Oracle database configuration

@@ -2,7 +2,7 @@
 
 This system provides a secure, standardized way to create and manage database users across multiple database platforms using Liquibase changesets with passwords stored in AWS Secrets Manager.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### Components
 
@@ -13,12 +13,12 @@ This system provides a secure, standardized way to create and manage database us
 
 ### Supported Databases
 
-- ✅ **PostgreSQL**: Roles with LOGIN capability
-- ✅ **MySQL**: Users with host-based access control
-- ✅ **SQL Server**: Logins and database users with role assignments
-- ✅ **Oracle**: Users with tablespace quotas and privilege grants
+- **PostgreSQL**: Roles with LOGIN capability
+- **MySQL**: Users with host-based access control
+- **SQL Server**: Logins and database users with role assignments
+- **Oracle**: Users with tablespace quotas and privilege grants
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Store User Passwords in AWS Secrets Manager
 
@@ -122,19 +122,19 @@ liquibase/
     └── USER_MANAGEMENT.md          # This documentation
 ```
 
-## 🛡️ Security Features
+## Security Features
 
 ### Password Protection
-- ✅ Passwords stored securely in AWS Secrets Manager
-- ✅ No hardcoded passwords in version control
-- ✅ Passwords masked in GitHub Actions logs
-- ✅ Temporary files cleaned up after deployment
+- Passwords stored securely in AWS Secrets Manager
+- No hardcoded passwords in version control
+- Passwords masked in GitHub Actions logs
+- Temporary files cleaned up after deployment
 
 ### Access Control
-- ✅ AWS IAM controls access to secrets
-- ✅ Principle of least privilege for database users
-- ✅ Role-based permission templates
-- ✅ Audit trail through Liquibase changelog tracking
+- AWS IAM controls access to secrets
+- Principle of least privilege for database users
+- Role-based permission templates
+- Audit trail through Liquibase changelog tracking
 
 ## 📋 Configuration Reference
 
@@ -167,7 +167,7 @@ liquibase/
 - `object_privileges`: Object-specific privileges
 - `role_grants`: Predefined role assignments
 
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Custom User Types
 
@@ -241,7 +241,7 @@ set -x  # Enable shell debugging
 AWS_CLI_PROFILE=debug ./get-user-password.sh secret-name username
 ```
 
-## 🔄 Integration with CI/CD
+## Integration with CI/CD
 
 The user management system integrates seamlessly with the existing Liquibase CI/CD pipeline:
 
@@ -262,7 +262,7 @@ The user management system integrates seamlessly with the existing Liquibase CI/
 
 ---
 
-## 🎯 Example Workflows
+## Example Workflows
 
 ### Creating an Application User
 

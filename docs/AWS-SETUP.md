@@ -280,10 +280,10 @@ RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier postgres-p
 ```
 
 This script:
-- ✅ Validates JSON format to prevent parsing errors
-- ✅ Uses proper escaping and formatting
-- ✅ Matches your `database-credentials-example.json` structure
-- ✅ Includes verification commands
+- Validates JSON format to prevent parsing errors
+- Uses proper escaping and formatting
+- Matches your `database-credentials-example.json` structure
+- Includes verification commands
 
 ### Manual Secret Creation via AWS CLI
 
@@ -539,10 +539,10 @@ git push origin test/pipeline-setup
 
 The pipeline should:
 
-- ✅ Discover all 4 databases
-- ✅ Download drivers automatically
-- ✅ Run in test mode (no AWS credentials needed)
-- ✅ Generate SQL previews for all platforms
+- Discover all 4 databases
+- Download drivers automatically
+- Run in test mode (no AWS credentials needed)
+- Generate SQL previews for all platforms
 
 ## 8. Troubleshooting
 

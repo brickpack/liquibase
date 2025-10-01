@@ -8,27 +8,27 @@ DATABASE=$1
 SECRET_NAME=${2:-"liquibase-users"}
 
 if [ -z "$DATABASE" ]; then
-    echo "❌ Usage: $0 <database> [secret_name]"
+    echo "Usage: $0 <database> [secret_name]"
     exit 1
 fi
 
-echo "🔐 Processing user changesets for $DATABASE..."
+echo "Processing user changesets for $DATABASE..."
 
 # Find all SQL files in the users directory for this database
 USERS_DIR="db/changelog/database-1/users"
 if [ ! -d "$USERS_DIR" ]; then
-    echo "ℹ️ No users directory found at $USERS_DIR, skipping user changeset processing"
+    echo "No users directory found at $USERS_DIR, skipping user changeset processing"
     exit 0
 fi
 
 USER_FILES=$(find "$USERS_DIR" -name "*.sql" -type f | sort)
 
 if [ -z "$USER_FILES" ]; then
-    echo "ℹ️ No user changeset files found in $USERS_DIR"
+    echo "No user changeset files found in $USERS_DIR"
     exit 0
 fi
 
-echo "📋 Found user changeset files:"
+echo "Found user changeset files:"
 for file in $USER_FILES; do
     echo "   - $file"
 done
@@ -42,7 +42,7 @@ for USER_FILE in $USER_FILES; do
     BASENAME=$(basename "$USER_FILE")
     TEMP_FILE="$TEMP_DIR/$BASENAME"
 
-    echo "🔧 Processing $BASENAME..."
+    echo "Processing $BASENAME..."
 
     # Copy original file
     cp "$USER_FILE" "$TEMP_FILE"
@@ -51,7 +51,7 @@ for USER_FILE in $USER_FILES; do
     PLACEHOLDERS=$(grep -o '{{PASSWORD:[^}]*}}' "$USER_FILE" | sort | uniq || true)
 
     if [ -n "$PLACEHOLDERS" ]; then
-        echo "   🔑 Found password placeholders, retrieving from AWS..."
+        echo "   Found password placeholders, retrieving from AWS..."
 
         for PLACEHOLDER in $PLACEHOLDERS; do
             # Extract username from {{PASSWORD:username}}
@@ -63,7 +63,7 @@ for USER_FILE in $USER_FILES; do
             PASSWORD=$(./.github/scripts/get-user-password.sh "$SECRET_NAME" "$USERNAME")
 
             if [ $? -ne 0 ] || [ -z "$PASSWORD" ]; then
-                echo "❌ Failed to retrieve password for user: $USERNAME"
+                echo "Failed to retrieve password for user: $USERNAME"
                 rm -rf "$TEMP_DIR"
                 exit 1
             fi
@@ -81,29 +81,29 @@ content = content.replace('$PLACEHOLDER', '$PASSWORD')
 open('$TEMP_FILE', 'w').write(content)
 "
 
-            echo "      ✅ Password substituted for: $USERNAME"
+            echo "      Password substituted for: $USERNAME"
         done
     else
-        echo "   ℹ️ No password placeholders found"
+        echo "   No password placeholders found"
     fi
 done
 
-echo "🚀 Executing user changesets with Liquibase..."
+echo "Executing user changesets with Liquibase..."
 
 # Execute each processed file
 for USER_FILE in $USER_FILES; do
     BASENAME=$(basename "$USER_FILE")
     TEMP_FILE="$TEMP_DIR/$BASENAME"
 
-    echo "📋 Executing $BASENAME..."
+    echo "Executing $BASENAME..."
 
     # Run with Liquibase
     if ./liquibase --defaults-file="liquibase-$DATABASE.properties" \
         update \
         --changelog-file="$TEMP_FILE"; then
-        echo "   ✅ Successfully executed $BASENAME"
+        echo "   Successfully executed $BASENAME"
     else
-        echo "   ❌ Failed to execute $BASENAME"
+        echo "   Failed to execute $BASENAME"
         # Don't exit immediately, try other files
     fi
 done
@@ -111,4 +111,4 @@ done
 # Clean up temporary files
 rm -rf "$TEMP_DIR"
 
-echo "✅ User changeset processing completed"
+echo "User changeset processing completed"
