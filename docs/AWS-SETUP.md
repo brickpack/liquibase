@@ -29,7 +29,7 @@ Create a file called `trust-policy.json` (replace `YOUR_ACCOUNT_ID`, `YOUR_GITHU
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/main",
-            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/feature/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/*",
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/hotfix/*",
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:pull_request"
           ]
@@ -43,7 +43,7 @@ Create a file called `trust-policy.json` (replace `YOUR_ACCOUNT_ID`, `YOUR_GITHU
 > **Security Note**: This trust policy now restricts access to specific branch patterns instead of using a wildcard (*). This follows AWS security best practices by limiting which GitHub Actions can assume the role to:
 >
 > - Main branch deployments (`ref:refs/heads/main`)
-> - Feature branches (`ref:refs/heads/feature/*`)
+> - Feature branches (`ref:refs/heads/*`)
 > - Hotfix branches (`ref:refs/heads/hotfix/*`)
 > - Pull request validations (`pull_request`)
 
@@ -449,7 +449,7 @@ Create `trust-policy.json`:
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/main",
-            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/feature/*",
+            "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/*",
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:ref:refs/heads/hotfix/*",
             "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:pull_request"
           ]

@@ -47,7 +47,7 @@ db/changelog/
 
 ```bash
 # Start with a feature branch for your database changes
-git checkout -b feature/add-myappdb
+git checkout -b add-myappdb
 ```
 
 ### 2. Add Database Configuration
@@ -203,7 +203,7 @@ sed -i 's|postgres-prod-server/userdb|postgres-prod-server/myappdb|g' changelog-
 git add changelog-postgres-prod-myappdb.xml
 git add db/changelog/postgres-prod-server/myappdb/
 git commit -m "Add myappdb database with initial schema"
-git push origin feature/add-myappdb
+git push origin add-myappdb
 # → Pipeline validates changesets in offline mode
 
 # Create Pull Request and get approval

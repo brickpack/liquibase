@@ -42,9 +42,9 @@ SELECT index_name FROM user_indexes;
 Always test on feature branches first:
 
 ```bash
-git checkout -b feature/my-changes
+git checkout -b my-changes
 # Make your changes
-git push origin feature/my-changes
+git push origin my-changes
 # Pipeline runs in TEST mode (offline validation only)
 ```
 
