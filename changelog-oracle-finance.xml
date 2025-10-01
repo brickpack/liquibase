@@ -11,4 +11,8 @@
     <include file="db/changelog/database-1/finance/003-indexes-and-constraints.sql"/>
     <include file="db/changelog/database-1/finance/004-seed-data.sql"/>
 
+    <!-- Oracle Database Users -->
+    <include file="db/changelog/database-1/users/001-finance-app-user.sql"/>
+    <include file="db/changelog/database-1/users/002-finance-readonly-user.sql"/>
+
 </databaseChangeLog>
