@@ -61,7 +61,7 @@ jobs:
           DATABASE_INPUT_LOWER=$(echo "$DATABASE_INPUT" | tr '[:upper:]' '[:lower:]')
 
           # Filter databases using jq with platform matching
-          FILTERED_DATABASES=$(echo "$ALL_DATABASES" | jq -r --arg input "$DATABASE_INPUT" --arg input_lower "$DATABASE_INPUT_LOWER" '
+          FILTERED_DATABASES=$(echo "$ALL_DATABASES" | jq -c --arg input "$DATABASE_INPUT" --arg input_lower "$DATABASE_INPUT_LOWER" '
             map(select(
               if ($input_lower == "mysql" or $input_lower == "my-sql") then
                 startswith("mysql-")
