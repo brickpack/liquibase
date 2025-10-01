@@ -21,18 +21,13 @@ GRANT CREATE SEQUENCE TO finance_app;
 GRANT CREATE TRIGGER TO finance_app;
 
 --changeset DM-6003:003
---comment: Grant object privileges to finance_app
+--comment: Grant object privileges to finance_app (currently skipped - configure schema owner if needed)
 --runOnChange:true
 --preconditions onFail:MARK_RAN
---precondition-sql-check expectedResult:1 SELECT COUNT(*) FROM dba_tables WHERE table_name = 'ACCOUNTS'
--- Grant object privileges (customize based on schema - update SCHEMA_NAME)
--- Note: Replace these with actual schema owner or remove if objects don't exist yet
--- GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA_NAME.accounts TO finance_app;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA_NAME.transactions TO finance_app;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA_NAME.transaction_details TO finance_app;
--- GRANT SELECT ON SCHEMA_NAME.account_balance_view TO finance_app;
--- For now, grant basic connection privileges only
-NULL;
+--precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_tables WHERE table_name = 'ACCOUNTS'
+-- This changeset is currently disabled via precondition
+-- Object privileges can be granted manually or configure schema owner in future changesets
+SELECT 1 FROM DUAL;
 
 --changeset DM-6004:004
 --comment: Grant roles to finance_app
