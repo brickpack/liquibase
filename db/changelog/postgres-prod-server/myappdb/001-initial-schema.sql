@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset myapp-team:001-create-users-table
+--changeset DM-2001:0.1.001
 --comment: Create users table for myappdb
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset myapp-team:001-create-organizations-table
+--changeset DM-001-create-organizations-table
 --comment: Create organizations table for myappdb
 CREATE TABLE IF NOT EXISTS organizations (
     id BIGSERIAL PRIMARY KEY,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset myapp-team:001-create-user-organizations-table
+--changeset DM-001-create-user-organizations-table
 --comment: Create user-organization relationships for myappdb
 CREATE TABLE IF NOT EXISTS user_organizations (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,

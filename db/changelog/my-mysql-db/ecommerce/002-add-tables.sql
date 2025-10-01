@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset myapp-team:002-add-customers-table
+--changeset DM-3003:0.1.003
 --comment: Add customers table for myappdb
 CREATE TABLE IF NOT EXISTS customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset myapp-team:002-add-orders-table
+--changeset DM-3004:0.1.004
 --comment: Add orders table with FK to customers
 CREATE TABLE IF NOT EXISTS orders (
     order_id INT AUTO_INCREMENT PRIMARY KEY,

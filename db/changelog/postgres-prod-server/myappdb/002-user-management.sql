@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset myapp-team:002-add-user-sessions-table
+--changeset DM-2002:0.1.002
 --comment: Add user sessions table for myappdb authentication
 CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset myapp-team:002-add-user-permissions-table
+--changeset DM-2003:0.1.003
 --comment: Add user permissions table for myappdb
 CREATE TABLE IF NOT EXISTS user_permissions (
     id BIGSERIAL PRIMARY KEY,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     UNIQUE(user_id, permission, resource_type, resource_id)
 );
 
---changeset myapp-team:002-create-indexes
+--changeset DM-2004:0.1.004
 --comment: Create indexes for myappdb performance
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);

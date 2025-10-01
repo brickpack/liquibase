@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset myapp-team:004-create-application-users splitStatements:false
+--changeset DM-1012:0.1.012 splitStatements:false
 --comment: Create application users for userdb
 --runOnChange:false
 DO $user_creation$
