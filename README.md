@@ -2,6 +2,15 @@
 
 A production-ready, optimized Liquibase CI/CD pipeline supporting PostgreSQL, MySQL, SQL Server, and Oracle with AWS integration and automated database creation.
 
+## Prerequisites
+
+**Before using this pipeline, complete these essential setup steps:**
+
+1. **AWS Setup**: Configure IAM roles and Secrets Manager → `docs/1-AWS-SETUP.md`
+2. **Safety Testing**: Learn how to test safely via GitHub Actions → `docs/2-SAFETY-TESTING-PLAN.md`
+
+These are required for the pipeline to function. See the [full documentation](#documentation) below for complete setup.
+
 ## Current Status - All Databases Working
 
 - **PostgreSQL**: `postgres-prod-myappdb`, `postgres-prod-userdb` - Deployed successfully
@@ -266,11 +275,14 @@ aws secretsmanager create-secret \
 CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
 ```
 
-See `docs/USER_MANAGEMENT.md` and `examples/DEMO_USER_CREATION.md` for complete setup guide.
+See `docs/4-USER-MANAGEMENT.md` and `docs/5-DEMO-USER-CREATION.md` for complete setup guide.
 
 ## Documentation
 
-- `docs/AWS-SETUP.md` - Complete AWS setup guide
-- `docs/ORACLE_SETUP.md` - Oracle database configuration
-- `docs/USER_MANAGEMENT.md` - Database user creation with AWS Secrets Manager
-- `docs/SAFETY-TESTING-PLAN.md` - Comprehensive safety testing procedures
+Follow these docs in order for complete setup:
+
+1. `docs/1-AWS-SETUP.md` - AWS IAM roles and Secrets Manager configuration
+2. `docs/2-SAFETY-TESTING-PLAN.md` - Safety testing procedures via GitHub Actions
+3. `docs/3-ORACLE-SETUP.md` - Oracle database configuration (if using Oracle)
+4. `docs/4-USER-MANAGEMENT.md` - Database user creation with AWS Secrets Manager
+5. `docs/5-DEMO-USER-CREATION.md` - Complete user creation walkthrough
