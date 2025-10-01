@@ -31,18 +31,64 @@ jobs:
   discover-databases:
     runs-on: ubuntu-latest
     outputs:
-      databases: ${{ steps.discover.outputs.databases }}
+      databases: ${{ steps.filter.outputs.databases }}
       test-mode: ${{ steps.determine-mode.outputs.test-mode }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Discover databases
+    - name: Discover all databases
       id: discover
       run: |
         databases=$(find . -name "changelog-*.xml" -type f | grep -v "changelog-bootstrap.xml" | sed 's|./changelog-||g' | sed 's|\.xml||g' | jq -R -s -c 'split("\n")[:-1]')
-        echo "Found databases: $databases"
-        echo "databases=$databases" >> $GITHUB_OUTPUT
+        echo "Found all databases: $databases"
+        echo "all-databases=$databases" >> $GITHUB_OUTPUT
+
+    - name: Filter databases by workflow dispatch input
+      id: filter
+      run: |
+        ALL_DATABASES='${{ steps.discover.outputs.all-databases }}'
+        DATABASE_INPUT="${{ github.event.inputs.database || 'all' }}"
+
+        echo "Database input: $DATABASE_INPUT"
+        echo "All databases: $ALL_DATABASES"
+
+        if [[ "$DATABASE_INPUT" == "all" ]]; then
+          echo "Running all databases"
+          echo "databases=$ALL_DATABASES" >> $GITHUB_OUTPUT
+        else
+          # Convert input to lowercase for comparison
+          DATABASE_INPUT_LOWER=$(echo "$DATABASE_INPUT" | tr '[:upper:]' '[:lower:]')
+
+          # Filter databases using jq with platform matching
+          FILTERED_DATABASES=$(echo "$ALL_DATABASES" | jq -r --arg input "$DATABASE_INPUT" --arg input_lower "$DATABASE_INPUT_LOWER" '
+            map(select(
+              if ($input_lower == "mysql" or $input_lower == "my-sql") then
+                startswith("mysql-")
+              elif ($input_lower == "postgresql" or $input_lower == "postgres" or $input_lower == "pg") then
+                startswith("postgres-")
+              elif ($input_lower == "sqlserver" or $input_lower == "sql-server" or $input_lower == "mssql") then
+                startswith("sqlserver-")
+              elif ($input_lower == "oracle" or $input_lower == "ora") then
+                startswith("oracle-")
+              else
+                . == $input
+              end
+            ))
+          ')
+
+          echo "Filtered databases: $FILTERED_DATABASES"
+          echo "databases=$FILTERED_DATABASES" >> $GITHUB_OUTPUT
+
+          # Show which databases will run
+          FILTERED_COUNT=$(echo "$FILTERED_DATABASES" | jq 'length')
+          if [[ "$FILTERED_COUNT" == "0" ]]; then
+            echo "⚠️ No databases match the filter '$DATABASE_INPUT'"
+            echo "Available databases: $(echo "$ALL_DATABASES" | jq -r '.[]' | tr '\n' ' ')"
+          else
+            echo "✅ Selected databases: $(echo "$FILTERED_DATABASES" | jq -r '.[]' | tr '\n' ' ')"
+          fi
+        fi
 
     - name: Determine execution mode
       id: determine-mode
@@ -86,55 +132,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Skip if specific database platform selected
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.database != 'all'
-      run: |
-        DATABASE_INPUT="${{ github.event.inputs.database }}"
-        MATRIX_DATABASE="${{ matrix.database }}"
-
-        # Convert input to lowercase for comparison
-        DATABASE_INPUT_LOWER=$(echo "$DATABASE_INPUT" | tr '[:upper:]' '[:lower:]')
-
-        # Check if matrix database matches the selected platform
-        SHOULD_RUN="false"
-
-        case "$DATABASE_INPUT_LOWER" in
-          "mysql"|"my-sql")
-            if [[ "$MATRIX_DATABASE" == mysql-* ]]; then
-              SHOULD_RUN="true"
-            fi
-            ;;
-          "postgresql"|"postgres"|"pg")
-            if [[ "$MATRIX_DATABASE" == postgres-* ]]; then
-              SHOULD_RUN="true"
-            fi
-            ;;
-          "sqlserver"|"sql-server"|"mssql")
-            if [[ "$MATRIX_DATABASE" == sqlserver-* ]]; then
-              SHOULD_RUN="true"
-            fi
-            ;;
-          "oracle"|"ora")
-            if [[ "$MATRIX_DATABASE" == oracle-* ]]; then
-              SHOULD_RUN="true"
-            fi
-            ;;
-          *)
-            # If it's an exact database name match, run it
-            if [[ "$DATABASE_INPUT" == "$MATRIX_DATABASE" ]]; then
-              SHOULD_RUN="true"
-            fi
-            ;;
-        esac
-
-        if [[ "$SHOULD_RUN" == "false" ]]; then
-          echo "🔄 Skipping $MATRIX_DATABASE as $DATABASE_INPUT was selected"
-          echo "::notice title=Database Skipped::$MATRIX_DATABASE skipped because $DATABASE_INPUT platform was selected"
-          exit 0
-        else
-          echo "✅ Running $MATRIX_DATABASE as it matches $DATABASE_INPUT platform"
-        fi
 
     - name: Configure AWS credentials
       if: needs.discover-databases.outputs.test-mode == 'false'
