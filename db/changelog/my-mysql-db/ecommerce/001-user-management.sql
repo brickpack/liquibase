@@ -2,8 +2,8 @@
 
 --changeset DM-3001:001
 --comment: Create application users for myappdb
-CREATE USER IF NOT EXISTS 'app_user'@'%' IDENTIFIED BY 'StrongPass123!';
-CREATE USER IF NOT EXISTS 'report_user'@'%' IDENTIFIED BY 'ReportPass123!';
+CREATE USER IF NOT EXISTS 'app_user'@'%' IDENTIFIED BY '{{PASSWORD:mysql_app_user}}';
+CREATE USER IF NOT EXISTS 'report_user'@'%' IDENTIFIED BY '{{PASSWORD:mysql_report_user}}';
 
 --changeset DM-3002:002
 --comment: Grant privileges to application users

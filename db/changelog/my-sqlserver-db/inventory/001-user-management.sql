@@ -4,7 +4,7 @@
 --comment: Create application login for SQL Server (server-level)
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM sys.server_principals WHERE name = 'app_user'
-CREATE LOGIN app_user WITH PASSWORD = 'StrongPass123!';
+CREATE LOGIN app_user WITH PASSWORD = '{{PASSWORD:sqlserver_app_user}}';
 
 --changeset DM-4002:002
 --comment: Create application user for inventory database (database-level)
@@ -16,7 +16,7 @@ CREATE USER app_user FOR LOGIN app_user;
 --comment: Create report login for SQL Server (server-level)
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM sys.server_principals WHERE name = 'report_user'
-CREATE LOGIN report_user WITH PASSWORD = 'ReportPass123!';
+CREATE LOGIN report_user WITH PASSWORD = '{{PASSWORD:sqlserver_report_user}}';
 
 --changeset DM-4004:004
 --comment: Create report user for inventory database (database-level)
