@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       database:
-        description: 'Database to target (or all)'
+        description: 'Database platform or specific database (mysql, postgresql, sqlserver, oracle, all, or exact name like mysql-ecommerce)'
         required: false
         default: 'all'
         type: string
@@ -87,11 +87,54 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Skip if specific database selected
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.database != 'all' && github.event.inputs.database != matrix.database
+    - name: Skip if specific database platform selected
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.database != 'all'
       run: |
-        echo "Skipping ${{ matrix.database }} as ${{ github.event.inputs.database }} was selected"
-        exit 0
+        DATABASE_INPUT="${{ github.event.inputs.database }}"
+        MATRIX_DATABASE="${{ matrix.database }}"
+
+        # Convert input to lowercase for comparison
+        DATABASE_INPUT_LOWER=$(echo "$DATABASE_INPUT" | tr '[:upper:]' '[:lower:]')
+
+        # Check if matrix database matches the selected platform
+        SHOULD_RUN="false"
+
+        case "$DATABASE_INPUT_LOWER" in
+          "mysql"|"my-sql")
+            if [[ "$MATRIX_DATABASE" == mysql-* ]]; then
+              SHOULD_RUN="true"
+            fi
+            ;;
+          "postgresql"|"postgres"|"pg")
+            if [[ "$MATRIX_DATABASE" == postgres-* ]]; then
+              SHOULD_RUN="true"
+            fi
+            ;;
+          "sqlserver"|"sql-server"|"mssql")
+            if [[ "$MATRIX_DATABASE" == sqlserver-* ]]; then
+              SHOULD_RUN="true"
+            fi
+            ;;
+          "oracle"|"ora")
+            if [[ "$MATRIX_DATABASE" == oracle-* ]]; then
+              SHOULD_RUN="true"
+            fi
+            ;;
+          *)
+            # If it's an exact database name match, run it
+            if [[ "$DATABASE_INPUT" == "$MATRIX_DATABASE" ]]; then
+              SHOULD_RUN="true"
+            fi
+            ;;
+        esac
+
+        if [[ "$SHOULD_RUN" == "false" ]]; then
+          echo "🔄 Skipping $MATRIX_DATABASE as $DATABASE_INPUT was selected"
+          echo "::notice title=Database Skipped::$MATRIX_DATABASE skipped because $DATABASE_INPUT platform was selected"
+          exit 0
+        else
+          echo "✅ Running $MATRIX_DATABASE as it matches $DATABASE_INPUT platform"
+        fi
 
     - name: Configure AWS credentials
       if: needs.discover-databases.outputs.test-mode == 'false'
