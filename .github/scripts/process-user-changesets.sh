@@ -14,14 +14,29 @@ fi
 
 echo "Processing user changesets for $DATABASE..."
 
-# Find all SQL files in the users directory for this database
-USERS_DIR="db/changelog/database-1/users"
-if [ ! -d "$USERS_DIR" ]; then
-    echo "No users directory found at $USERS_DIR, skipping user changeset processing"
-    exit 0
+# Find all SQL files that contain user management for this database
+# Look in multiple locations based on database type
+
+USER_FILES=""
+
+# Check for Oracle users directory
+ORACLE_USERS_DIR="db/changelog/database-1/users"
+if [[ "$DATABASE" == oracle-* ]] && [ -d "$ORACLE_USERS_DIR" ]; then
+    ORACLE_FILES=$(find "$ORACLE_USERS_DIR" -name "*.sql" -type f | sort)
+    USER_FILES="$USER_FILES $ORACLE_FILES"
 fi
 
-USER_FILES=$(find "$USERS_DIR" -name "*.sql" -type f | sort)
+# Check for user management files in database-specific directories
+DB_CHANGELOG_DIRS=$(find db/changelog -name "*user*" -type f | grep -E "\.(sql)$" | sort)
+for file in $DB_CHANGELOG_DIRS; do
+    # Check if file contains password templates
+    if grep -q "{{PASSWORD:" "$file" 2>/dev/null; then
+        USER_FILES="$USER_FILES $file"
+    fi
+done
+
+# Remove duplicates and sort
+USER_FILES=$(echo "$USER_FILES" | tr ' ' '\n' | sort | uniq | grep -v "^$" || true)
 
 if [ -z "$USER_FILES" ]; then
     echo "No user changeset files found in $USERS_DIR"
@@ -88,27 +103,24 @@ open('$TEMP_FILE', 'w').write(content)
     fi
 done
 
-echo "Executing user changesets with Liquibase..."
+# Instead of executing individual files, we need to replace the original files
+# so the main changelog execution will use the processed versions
 
-# Execute each processed file
+echo "Updating original files with processed versions..."
+
 for USER_FILE in $USER_FILES; do
     BASENAME=$(basename "$USER_FILE")
     TEMP_FILE="$TEMP_DIR/$BASENAME"
 
-    echo "Executing $BASENAME..."
-
-    # Run with Liquibase
-    if ./liquibase --defaults-file="liquibase-$DATABASE.properties" \
-        update \
-        --changelog-file="$TEMP_FILE"; then
-        echo "   Successfully executed $BASENAME"
-    else
-        echo "   Failed to execute $BASENAME"
-        # Don't exit immediately, try other files
+    if [ -f "$TEMP_FILE" ]; then
+        echo "   Updating $USER_FILE with processed passwords"
+        # Back up original and replace with processed version
+        cp "$USER_FILE" "$USER_FILE.backup"
+        cp "$TEMP_FILE" "$USER_FILE"
     fi
 done
 
-# Clean up temporary files
-rm -rf "$TEMP_DIR"
+echo "User changeset processing completed - files updated with real passwords"
+echo "Note: Original files backed up with .backup extension"
 
-echo "User changeset processing completed"
+# Note: Don't clean up temp dir yet, keep it for debugging if needed

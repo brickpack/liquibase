@@ -368,6 +368,21 @@ jobs:
 
         echo "✅ Database creation completed for: $DB_NAME"
 
+    - name: Process user changeset templates
+      if: needs.discover-databases.outputs.test-mode == 'false'
+      run: |
+        echo "Processing user changeset templates for ${{ matrix.database }}..."
+
+        # Only process user changesets in deploy mode when we have AWS credentials
+        SECRET_NAME="${{ vars.SECRET_NAME || 'liquibase-databases' }}"
+        USER_SECRET_NAME="${{ vars.USER_SECRET_NAME || 'liquibase-users' }}"
+
+        if ./.github/scripts/process-user-changesets.sh ${{ matrix.database }} "$USER_SECRET_NAME"; then
+          echo "✅ User changeset templates processed successfully"
+        else
+          echo "⚠️ User changeset processing failed or no user templates found"
+          echo "Continuing with deployment (user management may use default values)"
+        fi
 
     - name: Validate changelog
       run: |
@@ -399,6 +414,20 @@ jobs:
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} update
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} status
         fi
+
+    - name: Restore original user changeset files
+      if: always() && needs.discover-databases.outputs.test-mode == 'false'
+      run: |
+        echo "Restoring original user changeset files..."
+        # Restore backup files and remove processed versions
+        find db/changelog -name "*.sql.backup" -type f | while read backup_file; do
+          original_file="${backup_file%.backup}"
+          echo "   Restoring $original_file"
+          mv "$backup_file" "$original_file"
+        done
+        # Clean up any temporary directories
+        rm -rf /tmp/liquibase-users-* 2>/dev/null || true
+        echo "✅ Original files restored"
 
     - name: Cleanup sensitive files
       if: always()

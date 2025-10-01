@@ -287,5 +287,4 @@ Follow these docs in order for complete setup:
 
 1. `docs/1-AWS-SETUP.md` - AWS IAM roles and Secrets Manager configuration
 2. `docs/2-ORACLE-SETUP.md` - Oracle database configuration (if using Oracle)
-3. `docs/3-USER-MANAGEMENT.md` - Database user creation with AWS Secrets Manager
-4. `docs/4-DEMO-USER-CREATION.md` - Complete user creation walkthrough
+3. `docs/3-USER-MANAGEMENT.md` - Database user creation with password templating and AWS Secrets Manager
