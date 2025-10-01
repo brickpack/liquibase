@@ -1,12 +1,12 @@
 --liquibase formatted sql
 
---changeset finance-team:001-create-tablespace
+--changeset DM-5001:0.1.001
 --comment: Create dedicated tablespace for finance data
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_tablespaces WHERE tablespace_name = 'FINANCE_DATA'
 CREATE TABLESPACE FINANCE_DATA;
 
---changeset finance-team:001-create-accounts-table
+--changeset DM-5002:0.1.002
 --comment: Create chart of accounts table
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_tables WHERE table_name = 'ACCOUNTS'
@@ -22,7 +22,7 @@ CREATE TABLE accounts (
     CONSTRAINT fk_parent_account FOREIGN KEY (parent_account_id) REFERENCES accounts(account_id)
 ) TABLESPACE FINANCE_DATA;
 
---changeset finance-team:001-create-account-sequence
+--changeset DM-5003:0.1.003
 --comment: Create sequence for account IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_sequences WHERE sequence_name = 'ACCOUNTS_SEQ'
@@ -32,7 +32,7 @@ CREATE SEQUENCE accounts_seq
     NOCACHE
     NOCYCLE;
 
---changeset finance-team:001-create-account-trigger
+--changeset DM-5004:0.1.004
 --comment: Create trigger for auto-incrementing account IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'ACCOUNTS_TRG'

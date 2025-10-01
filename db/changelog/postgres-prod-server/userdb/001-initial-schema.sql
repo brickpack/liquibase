@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset postgres-team:001-create-users-table
+--changeset DM-1001:0.1.001
 --comment: Create users table with PostgreSQL-specific features
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset postgres-team:001-create-organizations-table
+--changeset DM-1002:0.1.002
 --comment: Create organizations table
 CREATE TABLE IF NOT EXISTS organizations (
     id BIGSERIAL PRIMARY KEY,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset postgres-team:001-create-user-organizations-table
+--changeset DM-1003:0.1.003
 --comment: Create many-to-many relationship table
 CREATE TABLE IF NOT EXISTS user_organizations (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,

@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset postgres-team:002-add-user-sessions-table
+--changeset DM-1004:0.1.004
 --comment: Add user sessions table for authentication tracking
 CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
---changeset postgres-team:002-add-user-permissions-table
+--changeset DM-1005:0.1.005
 --comment: Add user permissions table
 CREATE TABLE IF NOT EXISTS user_permissions (
     id BIGSERIAL PRIMARY KEY,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     UNIQUE(user_id, permission, resource_type, resource_id)
 );
 
---changeset postgres-team:002-create-indexes
+--changeset DM-1006:0.1.006
 --comment: Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
