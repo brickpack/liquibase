@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset DM-5004-insert-standard-account-types
+--changeset DM-5011:011
 --comment: Insert standard chart of accounts
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM accounts WHERE account_code IN ('1000', '2000', '3000', '4000', '5000')
@@ -83,7 +83,7 @@ VALUES ('5220', 'Office Supplies', 'EXPENSE',
 
 COMMIT;
 
---changeset DM-5004-create-audit-table
+--changeset DM-5012:012
 --comment: Create audit table for transaction changes
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_tables WHERE table_name = 'TRANSACTION_AUDIT'
@@ -97,7 +97,7 @@ CREATE TABLE transaction_audit (
     change_reason VARCHAR2(500)
 ) TABLESPACE FINANCE_DATA;
 
---changeset DM-5004-create-audit-sequence
+--changeset DM-5013:013
 --comment: Create sequence for audit IDs
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_sequences WHERE sequence_name = 'TRANSACTION_AUDIT_SEQ'
@@ -107,7 +107,7 @@ CREATE SEQUENCE transaction_audit_seq
     CACHE 50
     NOCYCLE;
 
---changeset DM-5004-create-audit-trigger
+--changeset DM-5014:014
 --comment: Create audit trigger for transaction status changes
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'TRANSACTIONS_AUDIT_TRG'
