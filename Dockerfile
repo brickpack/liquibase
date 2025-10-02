@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Oracle Instant Client
-RUN apt-get update && apt-get install -y libaio1 \
+RUN apt-get update && apt-get install -y libaio1t64 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /opt/oracle \
     && cd /opt/oracle \
@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y libaio1 \
 
 # Set Oracle environment variables
 ENV PATH="/opt/oracle/instantclient_23_4:${PATH}"
-ENV LD_LIBRARY_PATH="/opt/oracle/instantclient_23_4:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/opt/oracle/instantclient_23_4"
 
 # Install SQL Server command-line tools
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc \
