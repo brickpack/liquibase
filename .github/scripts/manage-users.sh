@@ -30,7 +30,7 @@ ADMIN_PASS=$(echo "$DB_INFO" | jq -r '.password')
 # PostgreSQL/MySQL format: jdbc:postgresql://host:port/database
 # Oracle format: jdbc:oracle:thin:@host:port:sid or jdbc:oracle:thin:@//host:port/service
 # SQL Server format: jdbc:sqlserver://host:port;databaseName=database
-if [[ "$DB_URL" =~ jdbc:sqlserver://([^:]+):([^;]+);databaseName=(.+) ]]; then
+if [[ "$DB_URL" =~ jdbc:sqlserver://([^:]+):([^\;]+)\;databaseName=(.+) ]]; then
     # SQL Server format: jdbc:sqlserver://host:port;databaseName=database
     DB_HOST="${BASH_REMATCH[1]}"
     DB_PORT="${BASH_REMATCH[2]}"
