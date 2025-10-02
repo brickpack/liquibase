@@ -5,9 +5,12 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.25.xsd">
 
-    <!-- PostgreSQL Production Server - userdb Database -->
+    <!-- MySQL E-commerce Database -->
     <include file="db/changelog/my-mysql-db/ecommerce/001-user-management.sql"/>
     <include file="db/changelog/my-mysql-db/ecommerce/002-add-tables.sql"/>
     <include file="db/changelog/my-mysql-db/ecommerce/003-add-indexes.sql"/>
+
+    <!-- MySQL Database Users -->
+    <include file="db/changelog/my-mysql-db/ecommerce/users/001-ecommerce-app-user.sql"/>
 
 </databaseChangeLog>
