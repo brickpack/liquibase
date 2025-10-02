@@ -41,3 +41,8 @@ SELECT 1 FROM DUAL;
 -- Purpose: Finance application service account with read/write access to finance schema
 -- Documented in code comments only since Oracle does not support user comments
 SELECT 1 FROM DUAL;
+
+--changeset DM-6011:011
+--comment: Reset finance_app password (use for password rotation)
+--runOnChange:true
+ALTER USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
