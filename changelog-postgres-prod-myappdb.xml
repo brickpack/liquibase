@@ -10,4 +10,7 @@
     <include file="db/changelog/postgres-prod-server/myappdb/002-user-management.sql"/>
     <include file="db/changelog/postgres-prod-server/myappdb/003-add-indexes.sql"/>
 
+    <!-- PostgreSQL Database Users -->
+    <include file="db/changelog/postgres-prod-server/myappdb/users/001-myapp-readwrite-user.sql"/>
+
 </databaseChangeLog>
