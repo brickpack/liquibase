@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset users-team:006
+--changeset users-team:006 splitStatements:false
 --comment: Create function to update updated_at timestamp automatically
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -26,7 +26,7 @@ CREATE TRIGGER trigger_update_user_profiles_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
---changeset users-team:009
+--changeset users-team:009 splitStatements:false
 --comment: Create function to log user changes to audit log
 CREATE OR REPLACE FUNCTION log_user_changes()
 RETURNS TRIGGER AS $$
@@ -63,7 +63,7 @@ CREATE TRIGGER trigger_audit_users
     FOR EACH ROW
     EXECUTE FUNCTION log_user_changes();
 
---changeset users-team:011
+--changeset users-team:011 splitStatements:false
 --comment: Create function to check if session is valid
 CREATE OR REPLACE FUNCTION is_session_valid(p_session_token TEXT)
 RETURNS BOOLEAN AS $$
@@ -82,7 +82,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
---changeset users-team:012
+--changeset users-team:012 splitStatements:false
 --comment: Create function to clean up expired sessions
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
 RETURNS INTEGER AS $$
@@ -97,7 +97,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
---changeset users-team:013
+--changeset users-team:013 splitStatements:false
 --comment: Create function to clean up expired password reset tokens
 CREATE OR REPLACE FUNCTION cleanup_expired_reset_tokens()
 RETURNS INTEGER AS $$
@@ -113,7 +113,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
---changeset users-team:014
+--changeset users-team:014 splitStatements:false
 --comment: Create function to get user statistics
 CREATE OR REPLACE FUNCTION get_user_stats()
 RETURNS TABLE (
