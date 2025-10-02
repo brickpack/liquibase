@@ -385,3 +385,39 @@ Complete documentation for setup and usage:
    - What each mode does
    - Manual triggers
    - Best practices and troubleshooting
+
+6. **[Best Practices & Lessons Learned](docs/6-BEST-PRACTICES.md)** - ⭐ **Read This!**
+   - PostgreSQL functions and triggers (splitStatements, dollar quotes)
+   - Partial indexes and immutability requirements
+   - User management approach (two-step process)
+   - Test vs deploy mode behavior
+   - Common errors and solutions
+   - Performance optimization tips
+
+## Quick Troubleshooting
+
+### PostgreSQL "Unterminated dollar quote" Error
+**Solution:** Add `splitStatements:false` to changeset with PL/pgSQL function:
+```sql
+--changeset author:001 splitStatements:false
+CREATE OR REPLACE FUNCTION my_function() ...
+```
+
+### "Functions in index predicate must be marked IMMUTABLE"
+**Solution:** Remove `CURRENT_TIMESTAMP` from partial index WHERE clause:
+```sql
+-- ❌ Wrong: WHERE expires_at > CURRENT_TIMESTAMP
+-- ✅ Correct: Remove WHERE clause or use immutable expression
+CREATE INDEX idx_name ON table(column);
+```
+
+### User Created But Password Doesn't Work
+**Solution:** Workflow ran in test mode. Run deploy mode:
+```bash
+gh workflow run liquibase-cicd.yml -f action=deploy -f database=your-db
+```
+
+### Database Not Created Automatically
+**Solution:** Add "master" secret to AWS Secrets Manager for database creation.
+
+See **[Best Practices](docs/6-BEST-PRACTICES.md)** for detailed solutions.
