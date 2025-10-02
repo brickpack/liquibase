@@ -60,13 +60,10 @@ RUN wget -q https://github.com/liquibase/liquibase/releases/download/v${LIQUIBAS
 
 ENV PATH="/opt/liquibase:${PATH}"
 
-# Install AWS CLI v2 (Alpine-compatible)
-RUN apk add --no-cache --virtual .aws-deps groff less \
-    && curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
-    && unzip -q awscliv2.zip \
-    && ./aws/install \
-    && rm -rf aws awscliv2.zip \
-    && apk del .aws-deps
+# Install AWS CLI v2 using pip (Alpine-compatible method)
+RUN apk add --no-cache python3 py3-pip \
+    && pip3 install --no-cache-dir --break-system-packages awscli \
+    && aws --version
 
 WORKDIR /workspace
 
