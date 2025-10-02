@@ -266,7 +266,7 @@ jobs:
         EOF
 
         # Run Liquibase validation in offline mode
-        if ./liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties validate; then
+        if liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties validate; then
           echo "✅ Liquibase offline validation PASSED for ${{ matrix.database }}"
         else
           echo "❌ Liquibase offline validation FAILED for ${{ matrix.database }}"
@@ -279,7 +279,7 @@ jobs:
 
         # Generate SQL preview in offline mode to catch additional issues
         echo "📋 Generating SQL preview to validate changeset logic..."
-        if ./liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties update-sql > planned-changes-${{ matrix.database }}-validation.sql; then
+        if liquibase --defaults-file=liquibase-${{ matrix.database }}-validation.properties update-sql > planned-changes-${{ matrix.database }}-validation.sql; then
           echo "✅ SQL generation succeeded"
 
           # Show a preview of what would be executed

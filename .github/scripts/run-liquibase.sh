@@ -23,7 +23,7 @@ case "$COMMAND" in
     "validate")
         echo "Validating changelog for $DATABASE..."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        if ./liquibase --defaults-file="$PROPERTIES_FILE" validate; then
+        if liquibase --defaults-file="$PROPERTIES_FILE" validate; then
             echo "Changelog validation PASSED for $DATABASE"
         else
             echo "Changelog validation FAILED for $DATABASE"
@@ -33,7 +33,7 @@ case "$COMMAND" in
     "update")
         echo "Deploying changes to $DATABASE..."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        if ./liquibase --defaults-file="$PROPERTIES_FILE" update; then
+        if liquibase --defaults-file="$PROPERTIES_FILE" update; then
             echo "Deployment completed successfully for $DATABASE"
         else
             echo "Deployment FAILED for $DATABASE"
@@ -43,7 +43,7 @@ case "$COMMAND" in
     "update-sql")
         echo "Generating SQL preview for $DATABASE..."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        if ./liquibase --defaults-file="$PROPERTIES_FILE" update-sql > "$SQL_OUTPUT"; then
+        if liquibase --defaults-file="$PROPERTIES_FILE" update-sql > "$SQL_OUTPUT"; then
             echo "SQL generation completed successfully"
 
             # Analyze the generated SQL
@@ -84,12 +84,12 @@ case "$COMMAND" in
         ;;
     "status")
         echo "Checking database status for $DATABASE..."
-        ./liquibase --defaults-file="$PROPERTIES_FILE" status
+        liquibase --defaults-file="$PROPERTIES_FILE" status
         ;;
     "clear-checksums")
         echo "Clearing checksums for $DATABASE..."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        if ./liquibase --defaults-file="$PROPERTIES_FILE" clear-checksums; then
+        if liquibase --defaults-file="$PROPERTIES_FILE" clear-checksums; then
             echo "Checksums cleared successfully for $DATABASE"
         else
             echo "Failed to clear checksums for $DATABASE"
