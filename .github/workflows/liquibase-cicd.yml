@@ -379,6 +379,18 @@ jobs:
 
         if ./.github/scripts/process-user-changesets.sh ${{ matrix.database }} "$USER_SECRET_NAME"; then
           echo "✅ User changeset templates processed successfully"
+
+          # Debug: Show processed SQL files (with passwords masked by GitHub automatically)
+          echo ""
+          echo "📋 Showing processed SQL files for verification:"
+          for file in db/changelog/${{ matrix.database }}/users/*.sql; do
+            if [ -f "$file" ]; then
+              echo "=== $file ==="
+              # Show only ALTER USER and CREATE USER lines
+              grep -E "(CREATE USER|ALTER USER)" "$file" || echo "No user creation/modification statements found"
+              echo ""
+            fi
+          done
         else
           echo "⚠️ User changeset processing failed or no user templates found"
           echo "Continuing with deployment (user management may use default values)"
