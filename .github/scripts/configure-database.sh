@@ -2,21 +2,27 @@
 set -e
 
 DATABASE=$1
-SECRET_NAME=${2:-"liquibase-databases"}
-TEST_MODE=${3:-"false"}
+TEST_MODE=${2:-"false"}
 
 if [ -z "$DATABASE" ]; then
-    echo "Usage: $0 <database> [secret_name] [test_mode]"
+    echo "Usage: $0 <database> [test_mode]"
+    echo "Example: $0 postgres-thedb false"
     exit 1
 fi
 
 echo "Configuring database: $DATABASE"
 
+# Parse database identifier (e.g., "postgres-thedb" -> server="postgres", dbname="thedb")
+DB_SERVER=$(echo "$DATABASE" | cut -d'-' -f1)
+DB_NAME=$(echo "$DATABASE" | cut -d'-' -f2-)
+
+echo "Parsed: Server Type=$DB_SERVER, Database Name=$DB_NAME"
+
 if [ "$TEST_MODE" = "true" ]; then
-    # Test mode - offline configuration (no classpath needed for PostgreSQL)
+    # Test mode - offline configuration
     cat > "liquibase-$DATABASE.properties" << EOF
 changelogFile=changelog-$DATABASE.xml
-url=offline:postgresql
+url=offline:$DB_SERVER
 driver=org.postgresql.Driver
 logLevel=INFO
 logFile=liquibase-$DATABASE.log
@@ -24,71 +30,88 @@ outputFile=liquibase-$DATABASE-output.txt
 EOF
     echo "Test configuration created"
 else
-    # Production mode - get credentials from AWS
+    # Production mode - get credentials from AWS per-server secret
+    # Secret name format: liquibase-{server}-{environment}
+    # For now, defaulting to "prod" environment
+    SECRET_NAME="liquibase-${DB_SERVER}-prod"
+
+    echo "Reading secret: $SECRET_NAME"
     SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
 
-    # Extract database configuration
-    DB_URL=$(echo "$SECRET_JSON" | jq -r --arg db "$DATABASE" '.[$db].url // empty')
-    DB_USERNAME=$(echo "$SECRET_JSON" | jq -r --arg db "$DATABASE" '.[$db].username // empty')
-    DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r --arg db "$DATABASE" '.[$db].password // empty')
-    DB_TYPE=$(echo "$SECRET_JSON" | jq -r --arg db "$DATABASE" '.[$db].type // empty')
+    # Extract database configuration from: secret.databases.{dbname}.connection
+    DB_URL=$(echo "$SECRET_JSON" | jq -r --arg db "$DB_NAME" '.databases[$db].connection.url // empty')
+    DB_USERNAME=$(echo "$SECRET_JSON" | jq -r --arg db "$DB_NAME" '.databases[$db].connection.username // empty')
+    DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r --arg db "$DB_NAME" '.databases[$db].connection.password // empty')
 
     if [ -z "$DB_URL" ] || [ "$DB_URL" = "null" ]; then
-        echo "Database configuration for '$DATABASE' not found in secret '$SECRET_NAME'"
-        echo "Available databases:"
-        echo "$SECRET_JSON" | jq -r 'keys[]'
+        echo "❌ Database '$DB_NAME' not found in secret '$SECRET_NAME'"
+        echo ""
+        echo "Available databases in this secret:"
+        echo "$SECRET_JSON" | jq -r '.databases | keys[]' 2>/dev/null || echo "  (none found)"
+        echo ""
+        echo "Expected secret structure:"
+        echo "{"
+        echo "  \"master\": { ... },"
+        echo "  \"databases\": {"
+        echo "    \"$DB_NAME\": {"
+        echo "      \"connection\": {"
+        echo "        \"url\": \"jdbc:...\","
+        echo "        \"username\": \"...\","
+        echo "        \"password\": \"...\""
+        echo "      },"
+        echo "      \"users\": { ... }"
+        echo "    }"
+        echo "  }"
+        echo "}"
         exit 1
     fi
 
-    # Auto-detect database type from URL if not specified
-    if [ -z "$DB_TYPE" ] || [ "$DB_TYPE" = "null" ]; then
-        if [[ "$DB_URL" == *"postgresql"* ]]; then
+    # Auto-detect database type from server name or URL
+    case "$DB_SERVER" in
+        "postgres"|"postgresql")
             DB_TYPE="postgresql"
-        elif [[ "$DB_URL" == *"mysql"* ]]; then
-            DB_TYPE="mysql"
-        elif [[ "$DB_URL" == *"sqlserver"* ]] || [[ "$DB_URL" == *"mssql"* ]]; then
-            DB_TYPE="sqlserver"
-        elif [[ "$DB_URL" == *"oracle"* ]]; then
-            DB_TYPE="oracle"
-        else
-            echo "Cannot auto-detect database type from URL"
-            exit 1
-        fi
-        echo "Auto-detected database type: $DB_TYPE"
-    fi
-
-    # Set driver configuration
-    # Note: In Docker container, drivers are in /opt/liquibase/lib/ and automatically loaded
-    # No need to specify classpath as Liquibase will find them automatically
-    case "$DB_TYPE" in
-        "postgresql")
             DB_DRIVER="org.postgresql.Driver"
-            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/postgresql.jar
             ;;
         "mysql")
+            DB_TYPE="mysql"
             DB_DRIVER="com.mysql.cj.jdbc.Driver"
-            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/mysql-connector-j.jar
             ;;
-        "sqlserver")
+        "sqlserver"|"mssql")
+            DB_TYPE="sqlserver"
             DB_DRIVER="com.microsoft.sqlserver.jdbc.SQLServerDriver"
-            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/mssql-jdbc.jar
             ;;
-        "oracle")
+        "oracle"|"ora")
+            DB_TYPE="oracle"
             DB_DRIVER="oracle.jdbc.OracleDriver"
-            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/ojdbc11.jar
             ;;
         *)
-            echo "Unsupported database type: $DB_TYPE"
-            exit 1
+            # Fallback: try to detect from URL
+            if [[ "$DB_URL" == *"postgresql"* ]]; then
+                DB_TYPE="postgresql"
+                DB_DRIVER="org.postgresql.Driver"
+            elif [[ "$DB_URL" == *"mysql"* ]]; then
+                DB_TYPE="mysql"
+                DB_DRIVER="com.mysql.cj.jdbc.Driver"
+            elif [[ "$DB_URL" == *"sqlserver"* ]]; then
+                DB_TYPE="sqlserver"
+                DB_DRIVER="com.microsoft.sqlserver.jdbc.SQLServerDriver"
+            elif [[ "$DB_URL" == *"oracle"* ]]; then
+                DB_TYPE="oracle"
+                DB_DRIVER="oracle.jdbc.OracleDriver"
+            else
+                echo "❌ Cannot determine database type from server name '$DB_SERVER' or URL"
+                exit 1
+            fi
             ;;
     esac
+
+    echo "Database type: $DB_TYPE"
 
     # Mask password for security
     echo "::add-mask::$DB_PASSWORD"
 
     # Modify URL for SQL Server SSL compatibility
     if [ "$DB_TYPE" = "sqlserver" ]; then
-        # Add SSL parameters for compatibility with ODBC Driver 18
         if [[ "$DB_URL" != *"encrypt="* ]]; then
             if [[ "$DB_URL" == *"?"* ]]; then
                 DB_URL="${DB_URL}&encrypt=false&trustServerCertificate=true"
@@ -104,23 +127,18 @@ else
         fi
     fi
 
-    # Handle Oracle URL format (preserve SID if specified, otherwise use service name)
+    # Handle Oracle URL format
     if [ "$DB_TYPE" = "oracle" ]; then
         if [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([0-9]+):([^/?]+) ]]; then
             HOST="${BASH_REMATCH[1]}"
             PORT="${BASH_REMATCH[2]}"
             SID_OR_SERVICE="${BASH_REMATCH[3]}"
 
-            # If the URL already uses SID format (:finance), preserve it
-            # Only convert to service name if using generic names like 'ORCL'
             if [[ "$SID_OR_SERVICE" == "ORCL" || "$SID_OR_SERVICE" == "XE" ]]; then
-                # Convert to service name format for standard Oracle instances
                 DB_URL="jdbc:oracle:thin:@${HOST}:${PORT}/${SID_OR_SERVICE}"
                 echo "Using Oracle service name format: ${SID_OR_SERVICE}"
             else
-                # Keep original SID format for custom database names
                 echo "Preserving Oracle SID format: ${SID_OR_SERVICE}"
-                echo "Connecting to Oracle database SID: ${SID_OR_SERVICE}"
             fi
         fi
     fi
@@ -132,18 +150,10 @@ url=$DB_URL
 username=$DB_USERNAME
 password=$DB_PASSWORD
 driver=$DB_DRIVER
-EOF
-
-    # Add classpath only if driver path is specified
-    if [ -n "$DRIVER_PATH" ]; then
-        echo "classpath=$DRIVER_PATH" >> "liquibase-$DATABASE.properties"
-    fi
-
-    cat >> "liquibase-$DATABASE.properties" << EOF
 logLevel=INFO
 logFile=liquibase-$DATABASE.log
 outputFile=liquibase-$DATABASE-output.txt
 EOF
 
-    echo "Production configuration created for $DB_TYPE database"
+    echo "✅ Production configuration created for $DB_TYPE database: $DB_NAME"
 fi

@@ -2,29 +2,81 @@
 set -e
 
 # Simple user management script that runs independently of Liquibase
-# Usage: ./manage-users.sh <database-name> <secret-name>
+# Usage: ./manage-users.sh <database>
+# Example: ./manage-users.sh postgres-thedb
 
-DATABASE_NAME=$1
-USER_SECRET_NAME=$2
+DATABASE=$1
 
-if [ -z "$DATABASE_NAME" ] || [ -z "$USER_SECRET_NAME" ]; then
-    echo "Usage: $0 <database-name> <user-secret-name>"
+if [ -z "$DATABASE" ]; then
+    echo "Usage: $0 <database>"
+    echo "Example: $0 postgres-thedb"
     exit 1
 fi
 
-# Get database connection info
-DB_CONFIG=$(aws secretsmanager get-secret-value --secret-id liquibase-databases --query SecretString --output text)
-DB_INFO=$(echo "$DB_CONFIG" | jq -r ".\"$DATABASE_NAME\"")
+echo "Managing users for database: $DATABASE"
 
-if [ "$DB_INFO" = "null" ] || [ -z "$DB_INFO" ]; then
-    echo "Database $DATABASE_NAME not found in secrets"
+# Parse database identifier (e.g., "postgres-thedb" -> server="postgres", dbname="thedb")
+DB_SERVER=$(echo "$DATABASE" | cut -d'-' -f1)
+DB_NAME=$(echo "$DATABASE" | cut -d'-' -f2-)
+
+echo "Parsed: Server Type=$DB_SERVER, Database Name=$DB_NAME"
+
+# Get credentials from per-server secret
+SECRET_NAME="liquibase-${DB_SERVER}-prod"
+
+echo "Reading secret: $SECRET_NAME"
+SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+
+# Extract database configuration from: secret.databases.{dbname}
+DB_CONFIG=$(echo "$SECRET_JSON" | jq -r --arg db "$DB_NAME" '.databases[$db] // empty')
+
+if [ -z "$DB_CONFIG" ] || [ "$DB_CONFIG" = "null" ]; then
+    echo "❌ Database '$DB_NAME' not found in secret '$SECRET_NAME'"
+    echo ""
+    echo "Available databases in this secret:"
+    echo "$SECRET_JSON" | jq -r '.databases | keys[]' 2>/dev/null || echo "  (none found)"
     exit 1
 fi
 
-DB_TYPE=$(echo "$DB_INFO" | jq -r '.type')
-DB_URL=$(echo "$DB_INFO" | jq -r '.url')
-ADMIN_USER=$(echo "$DB_INFO" | jq -r '.username')
-ADMIN_PASS=$(echo "$DB_INFO" | jq -r '.password')
+DB_URL=$(echo "$DB_CONFIG" | jq -r '.connection.url')
+ADMIN_USER=$(echo "$DB_CONFIG" | jq -r '.connection.username')
+ADMIN_PASS=$(echo "$DB_CONFIG" | jq -r '.connection.password')
+
+# Get user passwords from same database config
+USER_SECRETS=$(echo "$DB_CONFIG" | jq -r '.users // {}')
+
+# Auto-detect database type from server name or URL
+case "$DB_SERVER" in
+    "postgres"|"postgresql")
+        DB_TYPE="postgresql"
+        ;;
+    "mysql")
+        DB_TYPE="mysql"
+        ;;
+    "sqlserver"|"mssql")
+        DB_TYPE="sqlserver"
+        ;;
+    "oracle"|"ora")
+        DB_TYPE="oracle"
+        ;;
+    *)
+        # Fallback: try to detect from URL
+        if [[ "$DB_URL" == *"postgresql"* ]]; then
+            DB_TYPE="postgresql"
+        elif [[ "$DB_URL" == *"mysql"* ]]; then
+            DB_TYPE="mysql"
+        elif [[ "$DB_URL" == *"sqlserver"* ]]; then
+            DB_TYPE="sqlserver"
+        elif [[ "$DB_URL" == *"oracle"* ]]; then
+            DB_TYPE="oracle"
+        else
+            echo "❌ Cannot determine database type from server name '$DB_SERVER' or URL"
+            exit 1
+        fi
+        ;;
+esac
+
+echo "Database type: $DB_TYPE"
 
 # Parse JDBC URL to extract host, port, and database name
 # PostgreSQL/MySQL format: jdbc:postgresql://host:port/database
@@ -34,31 +86,35 @@ if [[ "$DB_URL" =~ jdbc:sqlserver://([^:]+):([^\;]+)\;databaseName=(.+) ]]; then
     # SQL Server format: jdbc:sqlserver://host:port;databaseName=database
     DB_HOST="${BASH_REMATCH[1]}"
     DB_PORT="${BASH_REMATCH[2]}"
-    DB_NAME="${BASH_REMATCH[3]}"
+    JDBC_DB_NAME="${BASH_REMATCH[3]}"
 elif [[ "$DB_URL" =~ jdbc:oracle:thin:@//([^:]+):([^/]+)/(.+) ]]; then
     # Oracle service name format: jdbc:oracle:thin:@//host:port/service
     DB_HOST="${BASH_REMATCH[1]}"
     DB_PORT="${BASH_REMATCH[2]}"
-    DB_NAME="${BASH_REMATCH[3]}"
+    JDBC_DB_NAME="${BASH_REMATCH[3]}"
 elif [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([^:]+):(.+) ]]; then
     # Oracle SID format: jdbc:oracle:thin:@host:port:sid
     DB_HOST="${BASH_REMATCH[1]}"
     DB_PORT="${BASH_REMATCH[2]}"
-    DB_NAME="${BASH_REMATCH[3]}"
+    JDBC_DB_NAME="${BASH_REMATCH[3]}"
 elif [[ "$DB_URL" =~ jdbc:([^:]+)://([^:]+):([^/]+)/(.+) ]]; then
     # PostgreSQL/MySQL format: jdbc:postgresql://host:port/database
     DB_HOST="${BASH_REMATCH[2]}"
     DB_PORT="${BASH_REMATCH[3]}"
-    DB_NAME="${BASH_REMATCH[4]}"
+    JDBC_DB_NAME="${BASH_REMATCH[4]}"
 else
     echo "Failed to parse JDBC URL: $DB_URL"
     exit 1
 fi
 
-# Get user passwords
-USER_SECRETS=$(aws secretsmanager get-secret-value --secret-id "$USER_SECRET_NAME" --query SecretString --output text)
+# Check if there are any users to manage
+if [ -z "$USER_SECRETS" ] || [ "$USER_SECRETS" = "{}" ] || [ "$USER_SECRETS" = "null" ]; then
+    echo "ℹ️  No users configured for database '$DB_NAME' in secret '$SECRET_NAME'"
+    echo "   Users are managed at: .databases.$DB_NAME.users"
+    exit 0
+fi
 
-echo "Managing users for $DATABASE_NAME ($DB_TYPE)..."
+echo "Managing users for $DB_NAME ($DB_TYPE)..."
 
 # Oracle
 if [ "$DB_TYPE" = "oracle" ]; then
@@ -106,7 +162,7 @@ elif [ "$DB_TYPE" = "postgresql" ]; then
         password=$(echo "$USER_SECRETS" | jq -r ".$username")
         echo "  Setting password for: $username"
 
-        PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$ADMIN_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<EOF
+        PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$ADMIN_USER" -d "$JDBC_DB_NAME" -v ON_ERROR_STOP=1 <<EOF
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_user WHERE usename = '$username') THEN
@@ -128,7 +184,7 @@ elif [ "$DB_TYPE" = "mysql" ]; then
         password=$(echo "$USER_SECRETS" | jq -r ".$username")
         echo "  Setting password for: $username"
 
-        mysql -h "$DB_HOST" -P "$DB_PORT" -u "$ADMIN_USER" -p"$ADMIN_PASS" -D "$DB_NAME" <<EOF
+        mysql -h "$DB_HOST" -P "$DB_PORT" -u "$ADMIN_USER" -p"$ADMIN_PASS" -D "$JDBC_DB_NAME" <<EOF
 -- Create user if doesn't exist, or just alter password if exists
 CREATE USER IF NOT EXISTS '${username}'@'%' IDENTIFIED BY '${password}';
 ALTER USER '${username}'@'%' IDENTIFIED BY '${password}';
@@ -144,7 +200,7 @@ elif [ "$DB_TYPE" = "sqlserver" ]; then
         echo "  Setting password for: $username"
 
         # Use sqlcmd from mssql-tools18 (available in Docker image)
-        sqlcmd -S "$DB_HOST,$DB_PORT" -U "$ADMIN_USER" -P "$ADMIN_PASS" -d "$DB_NAME" -C <<EOF
+        sqlcmd -S "$DB_HOST,$DB_PORT" -U "$ADMIN_USER" -P "$ADMIN_PASS" -d "$JDBC_DB_NAME" -C <<EOF
 IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '$username')
 BEGIN
     CREATE LOGIN [$username] WITH PASSWORD = '$password';
@@ -167,4 +223,4 @@ EOF
     done
 fi
 
-echo "✅ User management completed for $DATABASE_NAME"
+echo "✅ User management completed for $DB_NAME"

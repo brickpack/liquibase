@@ -316,7 +316,6 @@ jobs:
       run: |
         ./.github/scripts/configure-database.sh \
           ${{ matrix.database }} \
-          ${{ vars.SECRET_NAME || 'liquibase-databases' }} \
           ${{ needs.discover-databases.outputs.test-mode }}
 
     - name: Create database if needed
@@ -324,45 +323,34 @@ jobs:
       run: |
         echo "Ensuring database exists for ${{ matrix.database }}..."
 
-        # Extract database type and name from the configuration
-        DB_TYPE=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=jdbc://' | cut -d: -f1)
+        # Parse database identifier (e.g., "postgres-thedb" -> server="postgres", dbname="thedb")
+        DB_SERVER=$(echo "${{ matrix.database }}" | cut -d'-' -f1)
+        DB_NAME=$(echo "${{ matrix.database }}" | cut -d'-' -f2-)
 
-        # Extract database name based on database type
-        DB_URL=$(grep -E "^url=" liquibase-${{ matrix.database }}.properties | sed 's/url=//')
-        if [ "$DB_TYPE" = "sqlserver" ]; then
-          # SQL Server uses databaseName= parameter
-          DB_NAME=$(echo "$DB_URL" | sed -n 's/.*databaseName=\([^;]*\).*/\1/p')
-        else
-          # PostgreSQL, MySQL use /database format
-          DB_NAME=$(echo "$DB_URL" | sed 's/.*\///' | sed 's/;.*//' | sed 's/?.*//')
-        fi
+        echo "Creating database: $DB_NAME (server: $DB_SERVER)"
 
-        # Only create database in deploy mode (not test mode)
-        SECRET_NAME="${{ vars.SECRET_NAME || 'liquibase-databases' }}"
-
-        echo "Creating database: $DB_NAME (type: $DB_TYPE)"
-
-        if [ "$DB_TYPE" = "postgresql" ]; then
-          if ! ./.github/scripts/create-database.sh postgresql "$DB_NAME" "$SECRET_NAME"; then
+        if [ "$DB_SERVER" = "postgres" ] || [ "$DB_SERVER" = "postgresql" ]; then
+          if ! ./.github/scripts/create-database.sh postgresql "$DB_NAME"; then
             echo "❌ Failed to create PostgreSQL database: $DB_NAME"
             exit 1
           fi
-        elif [ "$DB_TYPE" = "mysql" ]; then
-          if ! ./.github/scripts/create-database.sh mysql "$DB_NAME" "$SECRET_NAME"; then
+        elif [ "$DB_SERVER" = "mysql" ]; then
+          if ! ./.github/scripts/create-database.sh mysql "$DB_NAME"; then
             echo "❌ Failed to create MySQL database: $DB_NAME"
             exit 1
           fi
-        elif [ "$DB_TYPE" = "sqlserver" ]; then
-          echo "⚡ Skipping SQL Server database creation (minimal setup mode)"
-          echo "Assuming SQL Server database '$DB_NAME' already exists"
-          echo "If database doesn't exist, Liquibase will show connection errors"
-        elif [ "$DB_TYPE" = "oracle" ]; then
-          if ! ./.github/scripts/create-database.sh oracle "$DB_NAME" "$SECRET_NAME"; then
+        elif [ "$DB_SERVER" = "sqlserver" ] || [ "$DB_SERVER" = "mssql" ]; then
+          if ! ./.github/scripts/create-database.sh sqlserver "$DB_NAME"; then
+            echo "❌ Failed to create SQL Server database: $DB_NAME"
+            exit 1
+          fi
+        elif [ "$DB_SERVER" = "oracle" ] || [ "$DB_SERVER" = "ora" ]; then
+          if ! ./.github/scripts/create-database.sh oracle "$DB_NAME"; then
             echo "❌ Failed to create Oracle database: $DB_NAME"
             exit 1
           fi
         else
-          echo "Unknown database type: $DB_TYPE - skipping database creation"
+          echo "Unknown database server: $DB_SERVER - skipping database creation"
         fi
 
         echo "✅ Database creation completed for: $DB_NAME"
@@ -372,12 +360,8 @@ jobs:
       run: |
         echo "Managing database users for ${{ matrix.database }}..."
 
-        # Set passwords from AWS Secrets Manager after Liquibase creates users
-        # This runs after schema deployment to ensure users exist
-        USER_SECRET_NAME="${{ vars.USER_SECRET_NAME || 'liquibase-users' }}"
-
-        # Note: This step will run after Liquibase update to set real passwords
-        # Liquibase creates users with temporary passwords, this sets the real ones
+        # Note: User passwords are now stored in per-server secrets
+        # Format: liquibase-{server}-prod with path .databases.{dbname}.users
         echo "User password management will run after schema deployment"
 
     - name: Validate changelog
@@ -415,10 +399,9 @@ jobs:
       if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
         echo "Setting real passwords for database users..."
-        USER_SECRET_NAME="${{ vars.USER_SECRET_NAME || 'liquibase-users' }}"
 
         chmod +x ./.github/scripts/manage-users.sh
-        if ./.github/scripts/manage-users.sh ${{ matrix.database }} "$USER_SECRET_NAME"; then
+        if ./.github/scripts/manage-users.sh ${{ matrix.database }}; then
           echo "✅ User passwords updated successfully"
         else
           echo "⚠️ User password management failed or no users to manage"
