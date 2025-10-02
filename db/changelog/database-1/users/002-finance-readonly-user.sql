@@ -39,3 +39,8 @@ SELECT 1 FROM DUAL;
 -- Purpose: Read-only access for reporting and analytics on finance data
 -- Documented in code comments only since Oracle does not support user comments
 SELECT 1 FROM DUAL;
+
+--changeset DM-6012:012
+--comment: Reset finance_readonly password (use for password rotation)
+--runOnChange:true
+ALTER USER finance_readonly IDENTIFIED BY "{{PASSWORD:finance_readonly}}";
