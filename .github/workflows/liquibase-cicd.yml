@@ -124,6 +124,11 @@ jobs:
   liquibase:
     needs: discover-databases
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository }}/liquibase-tools:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       matrix:
         database: ${{ fromJson(needs.discover-databases.outputs.databases) }}

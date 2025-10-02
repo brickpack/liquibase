@@ -139,10 +139,32 @@ EOF
 
 # SQL Server
 elif [ "$DB_TYPE" = "sqlserver" ]; then
-    echo "  ⚠️  SQL Server password management not yet implemented"
-    echo "  SQL Server users must be created by Liquibase with temporary passwords"
-    echo "  Then manually update passwords using: ALTER LOGIN [username] WITH PASSWORD = 'newpassword';"
-    echo "  Or install SQL Server tools in GitHub Actions and update this script"
+    for username in $(echo "$USER_SECRETS" | jq -r 'keys[]'); do
+        password=$(echo "$USER_SECRETS" | jq -r ".$username")
+        echo "  Setting password for: $username"
+
+        # Use sqlcmd from mssql-tools18 (available in Docker image)
+        sqlcmd -S "$DB_HOST,$DB_PORT" -U "$ADMIN_USER" -P "$ADMIN_PASS" -d "$DB_NAME" -C <<EOF
+IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '$username')
+BEGIN
+    CREATE LOGIN [$username] WITH PASSWORD = '$password';
+    PRINT 'Created login: $username';
+END
+ELSE
+BEGIN
+    ALTER LOGIN [$username] WITH PASSWORD = '$password';
+    PRINT 'Updated password for: $username';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = '$username')
+BEGIN
+    CREATE USER [$username] FOR LOGIN [$username];
+    PRINT 'Created user: $username';
+END
+GO
+EOF
+        echo "    ✓ $username"
+    done
 fi
 
 echo "✅ User management completed for $DATABASE_NAME"
