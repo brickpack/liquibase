@@ -37,8 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_session_token ON user_sessions(sess
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 
 --changeset users-team:024
---comment: Create composite index for active sessions
-CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(user_id, expires_at) WHERE expires_at > CURRENT_TIMESTAMP;
+--comment: Create composite index for active sessions (removed WHERE clause - CURRENT_TIMESTAMP not immutable)
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(user_id, expires_at);
 
 --changeset users-team:025
 --comment: Create index on user_audit_log.user_id for audit queries
