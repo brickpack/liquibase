@@ -116,6 +116,21 @@ EOF
         echo "    ✓ $username"
     done
 
+# MySQL
+elif [ "$DB_TYPE" = "mysql" ]; then
+    for username in $(echo "$USER_SECRETS" | jq -r 'keys[]'); do
+        password=$(echo "$USER_SECRETS" | jq -r ".$username")
+        echo "  Setting password for: $username"
+
+        mysql -h "$DB_HOST" -P "$DB_PORT" -u "$ADMIN_USER" -p"$ADMIN_PASS" -D "$DB_NAME" <<EOF
+-- Create user if doesn't exist, or just alter password if exists
+CREATE USER IF NOT EXISTS '${username}'@'%' IDENTIFIED BY '${password}';
+ALTER USER '${username}'@'%' IDENTIFIED BY '${password}';
+FLUSH PRIVILEGES;
+EOF
+        echo "    ✓ $username"
+    done
+
 # SQL Server
 elif [ "$DB_TYPE" = "sqlserver" ]; then
     for username in $(echo "$USER_SECRETS" | jq -r 'keys[]'); do
