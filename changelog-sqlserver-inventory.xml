@@ -10,4 +10,7 @@
     <include file="db/changelog/my-sqlserver-db/inventory/002-add-tables.sql"/>
     <include file="db/changelog/my-sqlserver-db/inventory/003-add-indexes.sql"/>
 
+    <!-- SQL Server Database Users -->
+    <include file="db/changelog/my-sqlserver-db/inventory/users/001-inventory-app-user.sql"/>
+
 </databaseChangeLog>
