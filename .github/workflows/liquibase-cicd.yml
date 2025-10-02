@@ -368,33 +368,18 @@ jobs:
 
         echo "✅ Database creation completed for: $DB_NAME"
 
-    - name: Process user changeset templates
+    - name: Manage database users
       if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
-        echo "Processing user changeset templates for ${{ matrix.database }}..."
+        echo "Managing database users for ${{ matrix.database }}..."
 
-        # Only process user changesets in deploy mode when we have AWS credentials
-        SECRET_NAME="${{ vars.SECRET_NAME || 'liquibase-databases' }}"
+        # Set passwords from AWS Secrets Manager after Liquibase creates users
+        # This runs after schema deployment to ensure users exist
         USER_SECRET_NAME="${{ vars.USER_SECRET_NAME || 'liquibase-users' }}"
 
-        if ./.github/scripts/process-user-changesets.sh ${{ matrix.database }} "$USER_SECRET_NAME"; then
-          echo "✅ User changeset templates processed successfully"
-
-          # Debug: Show processed SQL files (with passwords masked by GitHub automatically)
-          echo ""
-          echo "📋 Showing processed SQL files for verification:"
-          for file in db/changelog/${{ matrix.database }}/users/*.sql; do
-            if [ -f "$file" ]; then
-              echo "=== $file ==="
-              # Show only ALTER USER and CREATE USER lines
-              grep -E "(CREATE USER|ALTER USER)" "$file" || echo "No user creation/modification statements found"
-              echo ""
-            fi
-          done
-        else
-          echo "⚠️ User changeset processing failed or no user templates found"
-          echo "Continuing with deployment (user management may use default values)"
-        fi
+        # Note: This step will run after Liquibase update to set real passwords
+        # Liquibase creates users with temporary passwords, this sets the real ones
+        echo "User password management will run after schema deployment"
 
     - name: Validate changelog
       run: |
@@ -427,19 +412,19 @@ jobs:
           ./.github/scripts/run-liquibase.sh ${{ matrix.database }} status
         fi
 
-    - name: Restore original user changeset files
-      if: always() && needs.discover-databases.outputs.test-mode == 'false'
+    - name: Set user passwords from AWS Secrets Manager
+      if: needs.discover-databases.outputs.test-mode == 'false'
       run: |
-        echo "Restoring original user changeset files..."
-        # Restore backup files and remove processed versions
-        find db/changelog -name "*.sql.backup" -type f | while read backup_file; do
-          original_file="${backup_file%.backup}"
-          echo "   Restoring $original_file"
-          mv "$backup_file" "$original_file"
-        done
-        # Clean up any temporary directories
-        rm -rf /tmp/liquibase-users-* 2>/dev/null || true
-        echo "✅ Original files restored"
+        echo "Setting real passwords for database users..."
+        USER_SECRET_NAME="${{ vars.USER_SECRET_NAME || 'liquibase-users' }}"
+
+        chmod +x ./.github/scripts/manage-users.sh
+        if ./.github/scripts/manage-users.sh ${{ matrix.database }} "$USER_SECRET_NAME"; then
+          echo "✅ User passwords updated successfully"
+        else
+          echo "⚠️ User password management failed or no users to manage"
+          echo "Users may still have temporary passwords"
+        fi
 
     - name: Cleanup sensitive files
       if: always()

@@ -4,7 +4,8 @@
 --comment: Create user finance_readonly for Oracle
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_users WHERE username = UPPER('finance_readonly')
-CREATE USER finance_readonly IDENTIFIED BY "{{PASSWORD:finance_readonly}}"
+-- Note: Password will be set separately by manage-users.sh script
+CREATE USER finance_readonly IDENTIFIED BY "TemporaryPassword123"
     DEFAULT TABLESPACE USERS
     TEMPORARY TABLESPACE TEMP
     QUOTA 10M ON USERS
@@ -40,9 +41,3 @@ SELECT 1 FROM DUAL;
 -- Documented in code comments only since Oracle does not support user comments
 SELECT 1 FROM DUAL;
 
---changeset DM-6012:012
---comment: Reset finance_readonly password (use for password rotation)
---runOnChange:true
---preconditions onFail:CONTINUE
---precondition-sql-check expectedResult:1 SELECT 1 FROM DUAL
-ALTER USER finance_readonly IDENTIFIED BY "{{PASSWORD:finance_readonly}}";

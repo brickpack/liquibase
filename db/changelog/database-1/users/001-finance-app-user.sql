@@ -4,7 +4,8 @@
 --comment: Create user finance_app for Oracle
 --preconditions onFail:MARK_RAN
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM dba_users WHERE username = UPPER('finance_app')
-CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}"
+-- Note: Password will be set separately by manage-users.sh script
+CREATE USER finance_app IDENTIFIED BY "TemporaryPassword123"
     DEFAULT TABLESPACE FINANCE_DATA
     TEMPORARY TABLESPACE TEMP
     QUOTA 500M ON FINANCE_DATA
@@ -42,9 +43,3 @@ SELECT 1 FROM DUAL;
 -- Documented in code comments only since Oracle does not support user comments
 SELECT 1 FROM DUAL;
 
---changeset DM-6011:011
---comment: Reset finance_app password (use for password rotation)
---runOnChange:true
---preconditions onFail:CONTINUE
---precondition-sql-check expectedResult:1 SELECT 1 FROM DUAL
-ALTER USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
