@@ -14,19 +14,28 @@ fi
 
 # Get database connection info
 DB_CONFIG=$(aws secretsmanager get-secret-value --secret-id liquibase-databases --query SecretString --output text)
-DB_INFO=$(echo "$DB_CONFIG" | jq -r ".databases[] | select(.name==\"$DATABASE_NAME\")")
+DB_INFO=$(echo "$DB_CONFIG" | jq -r ".\"$DATABASE_NAME\"")
 
-if [ -z "$DB_INFO" ]; then
+if [ "$DB_INFO" = "null" ] || [ -z "$DB_INFO" ]; then
     echo "Database $DATABASE_NAME not found in secrets"
     exit 1
 fi
 
 DB_TYPE=$(echo "$DB_INFO" | jq -r '.type')
-DB_HOST=$(echo "$DB_INFO" | jq -r '.host')
-DB_PORT=$(echo "$DB_INFO" | jq -r '.port')
-DB_NAME=$(echo "$DB_INFO" | jq -r '.database')
+DB_URL=$(echo "$DB_INFO" | jq -r '.url')
 ADMIN_USER=$(echo "$DB_INFO" | jq -r '.username')
 ADMIN_PASS=$(echo "$DB_INFO" | jq -r '.password')
+
+# Parse JDBC URL to extract host, port, and database name
+# Format: jdbc:postgresql://host:port/database or jdbc:mysql://host:port/database
+if [[ "$DB_URL" =~ jdbc:([^:]+)://([^:]+):([^/]+)/(.+) ]]; then
+    DB_HOST="${BASH_REMATCH[2]}"
+    DB_PORT="${BASH_REMATCH[3]}"
+    DB_NAME="${BASH_REMATCH[4]}"
+else
+    echo "Failed to parse JDBC URL: $DB_URL"
+    exit 1
+fi
 
 # Get user passwords
 USER_SECRETS=$(aws secretsmanager get-secret-value --secret-id "$USER_SECRET_NAME" --query SecretString --output text)
