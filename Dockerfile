@@ -1,62 +1,54 @@
-FROM ubuntu:24.04
+FROM eclipse-temurin:17-jre-alpine
 
-# Avoid interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install all dependencies in a single layer to reduce image size
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install runtime dependencies
+RUN apk add --no-cache \
+    bash \
     curl \
     wget \
-    gnupg \
-    ca-certificates \
-    unzip \
     jq \
     git \
-    openjdk-17-jre-headless \
     postgresql-client \
     mysql-client \
-    libaio1t64 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    unzip \
+    libaio \
+    libnsl \
+    libc6-compat
 
-# Install Oracle Instant Client (using basiclite for smaller size)
+# Install Oracle Instant Client
 RUN mkdir -p /opt/oracle && cd /opt/oracle \
     && wget -q https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
     && wget -q https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-sqlplus-linux.x64-23.4.0.24.05.zip \
     && unzip -oq instantclient-basiclite-linux.x64-23.4.0.24.05.zip \
     && unzip -oq instantclient-sqlplus-linux.x64-23.4.0.24.05.zip \
     && rm -f *.zip \
-    && find /opt/oracle/instantclient_23_4 -name "*.sym" -delete \
-    && echo /opt/oracle/instantclient_23_4 > /etc/ld.so.conf.d/oracle-instantclient.conf \
-    && ldconfig
+    && find /opt/oracle/instantclient_23_4 -name "*.sym" -delete
 
-# Set Oracle environment variables
-ENV PATH="/opt/oracle/instantclient_23_4:${PATH}"
-ENV LD_LIBRARY_PATH="/opt/oracle/instantclient_23_4"
+ENV PATH="/opt/oracle/instantclient_23_4:${PATH}" \
+    LD_LIBRARY_PATH="/opt/oracle/instantclient_23_4"
 
-# Install SQL Server command-line tools
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
-    && curl https://packages.microsoft.com/config/ubuntu/24.04/prod.list | tee /etc/apt/sources.list.d/mssql-release.list \
-    && apt-get update \
-    && ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install SQL Server tools (using static binary approach for Alpine)
+RUN wget -q https://packages.microsoft.com/config/ubuntu/22.04/prod.list -O /tmp/mssql.list \
+    && apk add --no-cache --virtual .build-deps gnupg \
+    && mkdir -p /opt/mssql-tools \
+    && cd /opt/mssql-tools \
+    && wget -q https://download.microsoft.com/download/3/5/5/355d7943-a338-41a7-858d-53b259ea33f5/msodbcsql18_18.3.1.1-1_amd64.apk \
+    && wget -q https://download.microsoft.com/download/3/5/5/355d7943-a338-41a7-858d-53b259ea33f5/mssql-tools18_18.3.1.1-1_amd64.apk \
+    && apk add --allow-untrusted msodbcsql18_18.3.1.1-1_amd64.apk \
+    && apk add --allow-untrusted mssql-tools18_18.3.1.1-1_amd64.apk \
+    && rm -f *.apk \
+    && apk del .build-deps \
+    && rm -rf /tmp/*
 
-# Add SQL Server tools to PATH
 ENV PATH="/opt/mssql-tools18/bin:${PATH}"
 
-# Install Liquibase
+# Install Liquibase and JDBC drivers in a single layer
 ENV LIQUIBASE_VERSION=4.33.0
 RUN wget -q https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz \
     && mkdir -p /opt/liquibase \
     && tar -xzf liquibase-${LIQUIBASE_VERSION}.tar.gz -C /opt/liquibase \
     && rm liquibase-${LIQUIBASE_VERSION}.tar.gz \
-    && chmod +x /opt/liquibase/liquibase
-
-# Add Liquibase to PATH
-ENV PATH="/opt/liquibase:${PATH}"
-
-# Install JDBC drivers and remove duplicates from internal/lib
-RUN mkdir -p /opt/liquibase/lib \
+    && chmod +x /opt/liquibase/liquibase \
+    && mkdir -p /opt/liquibase/lib \
     && wget -q -O /opt/liquibase/lib/postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.4.jar \
     && wget -q -O /opt/liquibase/lib/mysql-connector-j.jar https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar \
     && wget -q -O /opt/liquibase/lib/ojdbc11.jar https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.6.0.24.10/ojdbc11-23.6.0.24.10.jar \
@@ -66,14 +58,16 @@ RUN mkdir -p /opt/liquibase/lib \
     && rm -f /opt/liquibase/internal/lib/ojdbc*.jar \
     && rm -f /opt/liquibase/internal/lib/mysql-connector*.jar
 
-# Install AWS CLI v2
-RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+ENV PATH="/opt/liquibase:${PATH}"
+
+# Install AWS CLI v2 (Alpine-compatible)
+RUN apk add --no-cache --virtual .aws-deps groff less \
+    && curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
     && unzip -q awscliv2.zip \
     && ./aws/install \
-    && rm -rf aws awscliv2.zip
+    && rm -rf aws awscliv2.zip \
+    && apk del .aws-deps
 
-# Set working directory
 WORKDIR /workspace
 
-# Default command
 CMD ["/bin/bash"]
