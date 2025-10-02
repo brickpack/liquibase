@@ -55,12 +55,16 @@ RUN wget -q https://github.com/liquibase/liquibase/releases/download/v${LIQUIBAS
 # Add Liquibase to PATH
 ENV PATH="/opt/liquibase:${PATH}"
 
-# Install JDBC drivers
+# Install JDBC drivers and remove duplicates from internal/lib
 RUN mkdir -p /opt/liquibase/lib \
     && wget -q -O /opt/liquibase/lib/postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.4.jar \
     && wget -q -O /opt/liquibase/lib/mysql-connector-j.jar https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar \
     && wget -q -O /opt/liquibase/lib/ojdbc11.jar https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.6.0.24.10/ojdbc11-23.6.0.24.10.jar \
-    && wget -q -O /opt/liquibase/lib/mssql-jdbc.jar https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar
+    && wget -q -O /opt/liquibase/lib/mssql-jdbc.jar https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar \
+    && rm -f /opt/liquibase/internal/lib/mssql-jdbc*.jar \
+    && rm -f /opt/liquibase/internal/lib/postgresql*.jar \
+    && rm -f /opt/liquibase/internal/lib/ojdbc*.jar \
+    && rm -f /opt/liquibase/internal/lib/mysql-connector*.jar
 
 # Install AWS CLI v2
 RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
