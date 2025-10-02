@@ -22,6 +22,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_user_search_vector ON users;
 CREATE TRIGGER trigger_update_user_search_vector
     BEFORE INSERT OR UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_user_search_vector();
@@ -58,6 +59,7 @@ BEGIN
 END;
 $audit_func$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_audit_user_changes ON users;
 CREATE TRIGGER trigger_audit_user_changes
     AFTER INSERT OR UPDATE OR DELETE ON users
     FOR EACH ROW EXECUTE FUNCTION audit_user_changes();
