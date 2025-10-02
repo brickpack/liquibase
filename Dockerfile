@@ -35,8 +35,8 @@ RUN apt-get update && apt-get install -y libaio1t64 \
     && cd /opt/oracle \
     && wget https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-basic-linux.x64-23.4.0.24.05.zip \
     && wget https://download.oracle.com/otn_software/linux/instantclient/2340000/instantclient-sqlplus-linux.x64-23.4.0.24.05.zip \
-    && unzip instantclient-basic-linux.x64-23.4.0.24.05.zip \
-    && unzip instantclient-sqlplus-linux.x64-23.4.0.24.05.zip \
+    && unzip -o instantclient-basic-linux.x64-23.4.0.24.05.zip \
+    && unzip -o instantclient-sqlplus-linux.x64-23.4.0.24.05.zip \
     && rm -f *.zip \
     && echo /opt/oracle/instantclient_23_4 > /etc/ld.so.conf.d/oracle-instantclient.conf \
     && ldconfig
