@@ -79,17 +79,16 @@ END;
 EOF
 
         # Execute using Liquibase's execute-sql command
-        liquibase --url="$DB_URL" \
+        echo "    Executing SQL for $username..."
+        if liquibase --url="$DB_URL" \
                   --username="$ADMIN_USER" \
                   --password="$ADMIN_PASS" \
                   --changeLogFile="$TEMP_SQL" \
                   execute-sql \
-                  --sql-file="$TEMP_SQL" >/dev/null 2>&1
-
-        if [ $? -eq 0 ]; then
-            echo "    ✓ $username"
+                  --sql-file="$TEMP_SQL" 2>&1 | grep -v "Liquibase Version" | grep -v "Liquibase Open Source"; then
+            echo "    ✓ $username password set"
         else
-            echo "    ⚠️  Failed to set password for $username"
+            echo "    ⚠️  Failed to set password for $username - check logs above"
         fi
 
         rm -f "$TEMP_SQL"
