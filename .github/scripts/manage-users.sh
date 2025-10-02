@@ -27,8 +27,20 @@ ADMIN_USER=$(echo "$DB_INFO" | jq -r '.username')
 ADMIN_PASS=$(echo "$DB_INFO" | jq -r '.password')
 
 # Parse JDBC URL to extract host, port, and database name
-# Format: jdbc:postgresql://host:port/database or jdbc:mysql://host:port/database
-if [[ "$DB_URL" =~ jdbc:([^:]+)://([^:]+):([^/]+)/(.+) ]]; then
+# PostgreSQL/MySQL format: jdbc:postgresql://host:port/database
+# Oracle format: jdbc:oracle:thin:@host:port:sid or jdbc:oracle:thin:@//host:port/service
+if [[ "$DB_URL" =~ jdbc:oracle:thin:@//([^:]+):([^/]+)/(.+) ]]; then
+    # Oracle service name format: jdbc:oracle:thin:@//host:port/service
+    DB_HOST="${BASH_REMATCH[1]}"
+    DB_PORT="${BASH_REMATCH[2]}"
+    DB_NAME="${BASH_REMATCH[3]}"
+elif [[ "$DB_URL" =~ jdbc:oracle:thin:@([^:]+):([^:]+):(.+) ]]; then
+    # Oracle SID format: jdbc:oracle:thin:@host:port:sid
+    DB_HOST="${BASH_REMATCH[1]}"
+    DB_PORT="${BASH_REMATCH[2]}"
+    DB_NAME="${BASH_REMATCH[3]}"
+elif [[ "$DB_URL" =~ jdbc:([^:]+)://([^:]+):([^/]+)/(.+) ]]; then
+    # PostgreSQL/MySQL format: jdbc:postgresql://host:port/database
     DB_HOST="${BASH_REMATCH[2]}"
     DB_PORT="${BASH_REMATCH[3]}"
     DB_NAME="${BASH_REMATCH[4]}"
@@ -48,30 +60,39 @@ if [ "$DB_TYPE" = "oracle" ]; then
         password=$(echo "$USER_SECRETS" | jq -r ".$username")
         echo "  Setting password for: $username"
 
-        sqlplus -s "$ADMIN_USER/$ADMIN_PASS@//$DB_HOST:$DB_PORT/$DB_NAME" <<EOF
-SET HEADING OFF
-SET FEEDBACK OFF
-WHENEVER SQLERROR EXIT SQL.SQLCODE
-
--- Create user if doesn't exist, or just alter password if exists
+        # Create temporary SQL file for Liquibase execution
+        TEMP_SQL="/tmp/set-password-${username}-$$.sql"
+        cat > "$TEMP_SQL" <<EOF
 DECLARE
     user_exists NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO user_exists FROM dba_users WHERE username = UPPER('$username');
+    SELECT COUNT(*) INTO user_exists FROM dba_users WHERE username = UPPER('${username}');
 
     IF user_exists = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE USER $username IDENTIFIED BY "$password" DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP ACCOUNT UNLOCK';
-        EXECUTE IMMEDIATE 'GRANT CREATE SESSION TO $username';
-        DBMS_OUTPUT.PUT_LINE('Created user: $username');
+        EXECUTE IMMEDIATE 'CREATE USER ${username} IDENTIFIED BY "${password}" DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP ACCOUNT UNLOCK';
+        EXECUTE IMMEDIATE 'GRANT CREATE SESSION TO ${username}';
     ELSE
-        EXECUTE IMMEDIATE 'ALTER USER $username IDENTIFIED BY "$password"';
-        DBMS_OUTPUT.PUT_LINE('Updated password for: $username');
+        EXECUTE IMMEDIATE 'ALTER USER ${username} IDENTIFIED BY "${password}"';
     END IF;
 END;
 /
-EXIT;
 EOF
-        echo "    ✓ $username"
+
+        # Execute using Liquibase's execute-sql command
+        liquibase --url="$DB_URL" \
+                  --username="$ADMIN_USER" \
+                  --password="$ADMIN_PASS" \
+                  --changeLogFile="$TEMP_SQL" \
+                  execute-sql \
+                  --sql-file="$TEMP_SQL" >/dev/null 2>&1
+
+        if [ $? -eq 0 ]; then
+            echo "    ✓ $username"
+        else
+            echo "    ⚠️  Failed to set password for $username"
+        fi
+
+        rm -f "$TEMP_SQL"
     done
 
 # PostgreSQL
