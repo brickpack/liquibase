@@ -5,6 +5,9 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
 
+    <!-- Database -->
+    <include file="db/changelog/postgres/the_db/database/001-create-database.sql" relativeToChangelogFile="true"/>
+
     <!-- Users -->
     <include file="db/changelog/postgres/the_db/users/001-create-users.sql" relativeToChangelogFile="true"/>
 
