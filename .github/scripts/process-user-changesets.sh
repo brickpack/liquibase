@@ -87,16 +87,21 @@ for USER_FILE in $USER_FILES; do
             echo "::add-mask::$PASSWORD"
 
             # Replace placeholder with actual password
-            # Use a more robust replacement that handles special characters
-            python3 -c "
-import sys
-import re
-content = open('$TEMP_FILE').read()
-content = content.replace('$PLACEHOLDER', '$PASSWORD')
-open('$TEMP_FILE', 'w').write(content)
-"
+            # Use sed with proper escaping to handle special characters
+            # Escape special characters in password for sed
+            ESCAPED_PASSWORD=$(printf '%s\n' "$PASSWORD" | sed -e 's/[\/&]/\\&/g')
+            ESCAPED_PLACEHOLDER=$(printf '%s\n' "$PLACEHOLDER" | sed -e 's/[\/&]/\\&/g')
+
+            sed -i.bak "s/${ESCAPED_PLACEHOLDER}/${ESCAPED_PASSWORD}/g" "$TEMP_FILE"
+            rm -f "${TEMP_FILE}.bak"
 
             echo "      Password substituted for: $USERNAME"
+
+            # Verify substitution worked
+            if grep -q "$PLACEHOLDER" "$TEMP_FILE"; then
+                echo "      ⚠️  WARNING: Placeholder still present after substitution!"
+                echo "      This may indicate special characters in password need additional escaping"
+            fi
         done
     else
         echo "   No password placeholders found"

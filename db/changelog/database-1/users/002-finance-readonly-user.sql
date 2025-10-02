@@ -43,4 +43,6 @@ SELECT 1 FROM DUAL;
 --changeset DM-6012:012
 --comment: Reset finance_readonly password (use for password rotation)
 --runOnChange:true
+--preconditions onFail:CONTINUE
+--precondition-sql-check expectedResult:1 SELECT 1 FROM DUAL
 ALTER USER finance_readonly IDENTIFIED BY "{{PASSWORD:finance_readonly}}";
