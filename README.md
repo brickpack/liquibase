@@ -232,39 +232,103 @@ gh pr create --title "Add myappdb database" --body "Adds new myappdb database wi
 
 ## Pipeline Behavior
 
-| Branch Type | Action | AWS Credentials | Database Connection |
-|-------------|--------|----------------|-------------------|
-| Feature branches | Test & validate | Not needed | Offline mode |
-| Pull requests | Test & preview | Not needed | Offline mode |
-| Main branch (after PR merge) | Deploy changes | Required | Live databases |
+The pipeline has two modes controlled by the `action` input (default: `auto`):
+
+### Test Mode
+- **When**: Feature branches, pull requests, or manual `action=test`
+- **What it does**:
+  - Validates SQL syntax
+  - Runs Liquibase offline validation
+  - Generates SQL preview files
+  - Does NOT connect to databases
+  - Does NOT set user passwords
+- **AWS Credentials**: Not required
+
+### Deploy Mode
+- **When**: Main branch (after PR merge) or manual `action=deploy`
+- **What it does**:
+  - Creates databases if they don't exist
+  - Deploys Liquibase changesets to live databases
+  - Sets real user passwords from AWS Secrets Manager
+  - Connects to actual databases
+- **AWS Credentials**: Required
+
+### Manual Workflow Triggers
+
+```bash
+# Test mode (validate only, no database connections)
+gh workflow run liquibase-cicd.yml -f action=test -f database=all
+
+# Deploy mode (connect and deploy to databases)
+gh workflow run liquibase-cicd.yml -f action=deploy -f database=sqlserver
+
+# Auto mode (decides based on branch)
+gh workflow run liquibase-cicd.yml  # defaults to auto
+```
+
+| Mode | AWS Credentials | Database Connection | User Password Management |
+|------|----------------|-------------------|------------------------|
+| Test | Not needed | Offline validation only | Skipped |
+| Deploy | Required | Live databases | Passwords set from AWS Secrets Manager |
 
 ## Features
 
 - **Dynamic Discovery**: Automatically finds databases from changelog files
-- **Branch-Aware**: Test mode on branches, deploy mode on main
-- **Secure**: No credentials needed for testing
-- **Parallel**: All databases deploy simultaneously
+- **Mode-Aware**: Test mode for validation, deploy mode for actual deployments
+- **Secure**: No credentials needed for testing, AWS Secrets Manager for passwords
+- **Parallel**: All databases deploy simultaneously via matrix strategy
 - **Auto-Create**: Creates missing databases automatically
-- **Safe**: Uses `IF NOT EXISTS` for tables, continues on individual failures
+- **Safe**: Uses `IF NOT EXISTS` for tables, preconditions for users
+- **Docker-Based**: Custom container with all database tools pre-installed (PostgreSQL, MySQL, Oracle, SQL Server)
+- **Multi-Platform**: Supports PostgreSQL, MySQL, SQL Server, and Oracle
 
 ## User Management
 
-The pipeline includes AWS Secrets Manager integration for secure database user creation:
+The pipeline uses a two-step approach for secure user creation:
+
+### Step 1: Liquibase Creates Users (Temporary Password)
+
+User changesets create users with temporary passwords:
+
+```sql
+--liquibase formatted sql
+
+--changeset DM-6001:001
+--comment: Create application user
+-- Note: Real password set by manage-users.sh after deployment
+CREATE USER finance_app IDENTIFIED BY "TemporaryPassword123"
+    DEFAULT TABLESPACE FINANCE_DATA
+    TEMPORARY TABLESPACE TEMP;
+
+GRANT CREATE SESSION TO finance_app;
+GRANT CREATE TABLE TO finance_app;
+```
+
+### Step 2: Pipeline Sets Real Passwords
+
+After Liquibase deployment, the `manage-users.sh` script automatically sets real passwords from AWS Secrets Manager:
 
 ```bash
-# Add user passwords to a separate secret
+# Store user passwords in AWS Secrets Manager
 aws secretsmanager create-secret \
   --name "liquibase-users" \
   --secret-string '{
     "finance_app": "SecureAppPassword123!",
-    "finance_readonly": "ReadOnlyPassword456!"
+    "finance_readonly": "ReadOnlyPassword456!",
+    "myapp_readwrite": "MyAppPassword789!",
+    "ecommerce_app": "EcommercePassword012!",
+    "inventory_app": "InventoryPassword345!"
   }'
-
-# User changesets use password placeholders
-CREATE USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";
 ```
 
-See `docs/3-USER-MANAGEMENT.md` and `docs/4-DEMO-USER-CREATION.md` for complete setup guide.
+**How it works:**
+1. Liquibase creates users/logins with temporary passwords (tracked in version control)
+2. `manage-users.sh` script runs after deployment and sets real passwords from AWS Secrets Manager
+3. Passwords are never stored in version control, only in AWS Secrets Manager
+
+**Important:** Only runs in **deploy mode** (main branch or manual deploy action), not in test mode.
+
+See `docs/3-USER-MANAGEMENT.md` for complete setup guide.
 
 ## Current Status - All Databases Working
 
@@ -283,8 +347,37 @@ See `docs/3-USER-MANAGEMENT.md` and `docs/4-DEMO-USER-CREATION.md` for complete 
 
 ## Documentation
 
-Follow these docs in order for complete setup:
+Complete documentation for setup and usage:
 
-1. `docs/1-AWS-SETUP.md` - AWS IAM roles and Secrets Manager configuration
-2. `docs/2-ORACLE-SETUP.md` - Oracle database configuration (if using Oracle)
-3. `docs/3-USER-MANAGEMENT.md` - Database user creation with password templating and AWS Secrets Manager
+### Setup Guides (Read in Order)
+
+1. **[AWS Setup](docs/1-AWS-SETUP.md)** - AWS IAM roles and Secrets Manager configuration
+   - OIDC provider setup
+   - IAM role creation
+   - Secrets Manager configuration
+   - GitHub repository variables
+
+2. **[Oracle Setup](docs/2-ORACLE-SETUP.md)** - Oracle-specific configuration (if using Oracle)
+   - Oracle RDS requirements
+   - User privileges
+   - Connection troubleshooting
+
+3. **[User Management](docs/3-USER-MANAGEMENT.md)** - Database user creation with AWS Secrets Manager
+   - Two-step approach (Liquibase + password script)
+   - Platform-specific examples (Oracle, PostgreSQL, MySQL, SQL Server)
+   - Password rotation
+   - Troubleshooting
+
+### Reference Documentation
+
+4. **[Docker Container](docs/4-DOCKER-CONTAINER.md)** - Custom container with pre-installed tools
+   - What's included (database clients, JDBC drivers, tools)
+   - Build process and optimizations
+   - Local development usage
+   - Troubleshooting
+
+5. **[Workflow Modes](docs/5-WORKFLOW-MODES.md)** - Test vs Deploy modes
+   - When each mode runs
+   - What each mode does
+   - Manual triggers
+   - Best practices and troubleshooting
