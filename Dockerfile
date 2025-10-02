@@ -46,8 +46,8 @@ ENV PATH="/opt/oracle/instantclient_23_4:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/oracle/instantclient_23_4"
 
 # Install SQL Server command-line tools
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc \
-    && add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list)" \
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && curl https://packages.microsoft.com/config/ubuntu/24.04/prod.list | tee /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev \
     && rm -rf /var/lib/apt/lists/*
