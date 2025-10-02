@@ -58,22 +58,24 @@ else
     fi
 
     # Set driver configuration
+    # Note: In Docker container, drivers are in /opt/liquibase/lib/ and automatically loaded
+    # No need to specify classpath as Liquibase will find them automatically
     case "$DB_TYPE" in
         "postgresql")
             DB_DRIVER="org.postgresql.Driver"
-            DRIVER_PATH=""  # PostgreSQL driver included in Liquibase 4.33.0
+            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/postgresql.jar
             ;;
         "mysql")
             DB_DRIVER="com.mysql.cj.jdbc.Driver"
-            DRIVER_PATH="drivers/mysql.jar"
+            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/mysql-connector-j.jar
             ;;
         "sqlserver")
             DB_DRIVER="com.microsoft.sqlserver.jdbc.SQLServerDriver"
-            DRIVER_PATH="drivers/sqlserver.jar"
+            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/mssql-jdbc.jar
             ;;
         "oracle")
             DB_DRIVER="oracle.jdbc.OracleDriver"
-            DRIVER_PATH="drivers/oracle.jar"
+            DRIVER_PATH=""  # Driver in /opt/liquibase/lib/ojdbc11.jar
             ;;
         *)
             echo "Unsupported database type: $DB_TYPE"
