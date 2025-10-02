@@ -13,4 +13,7 @@
     <!-- PostgreSQL Database Users -->
     <include file="db/changelog/postgres-prod-server/myappdb/users/001-myapp-readwrite-user.sql"/>
 
+    <!-- Test Rollback -->
+    <include file="db/changelog/postgres-prod-server/myappdb/006-test-rollback.sql"/>
+
 </databaseChangeLog>
