@@ -45,4 +45,6 @@ SELECT 1 FROM DUAL;
 --changeset DM-6011:011
 --comment: Reset finance_app password (use for password rotation)
 --runOnChange:true
+--preconditions onFail:CONTINUE
+--precondition-sql-check expectedResult:1 SELECT 1 FROM DUAL
 ALTER USER finance_app IDENTIFIED BY "{{PASSWORD:finance_app}}";

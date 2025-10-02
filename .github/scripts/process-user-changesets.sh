@@ -87,16 +87,28 @@ for USER_FILE in $USER_FILES; do
             echo "::add-mask::$PASSWORD"
 
             # Replace placeholder with actual password
-            # Use a more robust replacement that handles special characters
-            python3 -c "
-import sys
-import re
-content = open('$TEMP_FILE').read()
-content = content.replace('$PLACEHOLDER', '$PASSWORD')
-open('$TEMP_FILE', 'w').write(content)
-"
+            # Use sed with proper escaping to handle special characters
+            # Escape special characters in password for sed
+            ESCAPED_PASSWORD=$(printf '%s\n' "$PASSWORD" | sed -e 's/[\/&]/\\&/g')
+            ESCAPED_PLACEHOLDER=$(printf '%s\n' "$PLACEHOLDER" | sed -e 's/[\/&]/\\&/g')
+
+            sed -i.bak "s/${ESCAPED_PLACEHOLDER}/${ESCAPED_PASSWORD}/g" "$TEMP_FILE"
+            rm -f "${TEMP_FILE}.bak"
 
             echo "      Password substituted for: $USERNAME"
+
+            # Verify substitution worked
+            if grep -q "$PLACEHOLDER" "$TEMP_FILE"; then
+                echo "      ⚠️  WARNING: Placeholder still present after substitution!"
+                echo "      This may indicate special characters in password need additional escaping"
+            else
+                echo "      ✓ Password placeholder successfully replaced"
+                # Show the actual line that was changed (with password masked)
+                echo "      Verifying: File contains ALTER USER statement"
+                if grep -q "ALTER USER.*IDENTIFIED BY" "$TEMP_FILE"; then
+                    echo "      ✓ ALTER USER statement found in processed file"
+                fi
+            fi
         done
     else
         echo "   No password placeholders found"
@@ -122,5 +134,16 @@ done
 
 echo "User changeset processing completed - files updated with real passwords"
 echo "Note: Original files backed up with .backup extension"
+
+# Debug: Show that processed files don't contain placeholders
+echo ""
+echo "Final verification - checking for remaining placeholders in processed files:"
+for USER_FILE in $USER_FILES; do
+    if grep -q "{{PASSWORD:" "$USER_FILE"; then
+        echo "   ⚠️  WARNING: $USER_FILE still contains password placeholders!"
+    else
+        echo "   ✓ $USER_FILE has no password placeholders"
+    fi
+done
 
 # Note: Don't clean up temp dir yet, keep it for debugging if needed
