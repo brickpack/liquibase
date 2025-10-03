@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e
 
-# Script to create or update the liquibase-postgres-prod secret
-# This secret contains master connection and all PostgreSQL databases
+# Script to create or update the liquibase-sqlserver-prod secret
+# This secret contains master connection and all SQL Server databases
 
-SECRET_NAME="liquibase-postgres-prod"
-
+SECRET_NAME="liquibase-sqlserver-prod"
 echo "=== AWS Region Selection ==="
 echo "Current AWS_REGION environment variable: ${AWS_REGION:-not set}"
 echo ""
 read -p "Enter AWS region [us-west-2]: " INPUT_REGION
 REGION="${INPUT_REGION:-${AWS_REGION:-us-east-1}}"
 
-echo ""
 echo "Creating/updating secret: $SECRET_NAME"
 echo "Region: $REGION"
 echo ""
@@ -34,19 +32,19 @@ else
 fi
 
 echo ""
-echo "=== PostgreSQL Master Connection ==="
+echo "=== SQL Server Master Connection ==="
 echo "This is the superuser connection used to create databases and users."
 echo ""
 
-read -p "Master PostgreSQL host (e.g., my-postgres.aws.com): " MASTER_HOST
-read -p "Master PostgreSQL port [5432]: " MASTER_PORT
-MASTER_PORT=${MASTER_PORT:-5432}
-read -p "Master PostgreSQL username [postgres]: " MASTER_USER
-MASTER_USER=${MASTER_USER:-postgres}
-read -sp "Master PostgreSQL password: " MASTER_PASS
+read -p "Master SQL Server host (e.g., my-sqlserver.aws.com): " MASTER_HOST
+read -p "Master SQL Server port [1433]: " MASTER_PORT
+MASTER_PORT=${MASTER_PORT:-1433}
+read -p "Master SQL Server username [sa]: " MASTER_USER
+MASTER_USER=${MASTER_USER:-sa}
+read -sp "Master SQL Server password: " MASTER_PASS
 echo ""
 
-MASTER_URL="jdbc:postgresql://${MASTER_HOST}:${MASTER_PORT}/postgres"
+MASTER_URL="jdbc:sqlserver://${MASTER_HOST}:${MASTER_PORT};databaseName=master;encrypt=true;trustServerCertificate=true"
 
 echo ""
 echo "Master connection configured:"
@@ -58,7 +56,7 @@ echo ""
 SECRET_JSON=$(cat <<EOF
 {
   "master": {
-    "type": "postgresql",
+    "type": "sqlserver",
     "url": "$MASTER_URL",
     "username": "$MASTER_USER",
     "password": "$MASTER_PASS"
@@ -69,8 +67,8 @@ EOF
 )
 
 echo ""
-echo "=== PostgreSQL Databases ==="
-echo "Add databases that exist on this PostgreSQL server."
+echo "=== SQL Server Databases ==="
+echo "Add databases that exist on this SQL Server instance."
 echo "Leave database name empty when done."
 echo ""
 
@@ -92,7 +90,7 @@ while true; do
         DB_PASS="$MASTER_PASS"
     fi
 
-    DB_URL="jdbc:postgresql://${MASTER_HOST}:${MASTER_PORT}/${DB_NAME}"
+    DB_URL="jdbc:sqlserver://${MASTER_HOST}:${MASTER_PORT};databaseName=${DB_NAME};encrypt=true;trustServerCertificate=true"
 
     echo ""
     echo "=== Application Users for $DB_NAME ==="
@@ -170,7 +168,7 @@ else
     echo "Creating secret: $SECRET_NAME"
     aws secretsmanager create-secret \
         --name "$SECRET_NAME" \
-        --description "Liquibase PostgreSQL server configuration with master connection and all databases" \
+        --description "Liquibase SQL Server configuration with master connection and all databases" \
         --secret-string "$SECRET_JSON" \
         --region "$REGION"
 fi
@@ -178,5 +176,5 @@ fi
 echo ""
 echo "✅ Secret '$SECRET_NAME' created/updated successfully!"
 echo ""
-echo "You can now use this with database identifier: postgres-{dbname}"
-echo "Example: postgres-thedb"
+echo "You can now use this with database identifier: sqlserver-{dbname}"
+echo "Example: sqlserver-thedb"

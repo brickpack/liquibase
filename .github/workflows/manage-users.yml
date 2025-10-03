@@ -1,0 +1,103 @@
+name: Manage Database Users
+
+on:
+  workflow_dispatch:
+    inputs:
+      database:
+        description: 'Database identifier (e.g., postgres-thedb, sqlserver-ecommerce)'
+        required: true
+        type: string
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - sync-passwords
+          - create-user
+          - update-password
+          - grant-privileges
+          - revoke-privileges
+          - drop-user
+      username:
+        description: 'Username (required for create/update/grant/revoke/drop actions)'
+        required: false
+        type: string
+      password:
+        description: 'Password (required for create-user and update-password actions)'
+        required: false
+        type: string
+      privileges:
+        description: 'Privileges to grant/revoke'
+        required: false
+        type: choice
+        options:
+          - readwrite
+          - readonly
+          - admin
+          - custom
+      custom_sql:
+        description: 'Custom SQL for grant/revoke (if privileges=custom)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  manage-user:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository }}/liquibase-tools:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Execute user management
+        env:
+          DATABASE: ${{ github.event.inputs.database }}
+          ACTION: ${{ github.event.inputs.action }}
+          USERNAME: ${{ github.event.inputs.username }}
+          PASSWORD: ${{ github.event.inputs.password }}
+          PRIVILEGES: ${{ github.event.inputs.privileges }}
+          CUSTOM_SQL: ${{ github.event.inputs.custom_sql }}
+        run: |
+          set -e
+
+          echo "================================================"
+          echo "User Management"
+          echo "================================================"
+          echo "Database: $DATABASE"
+          echo "Action: $ACTION"
+          echo "Username: $USERNAME"
+          echo "================================================"
+          echo ""
+
+          # Make script executable
+          chmod +x .github/scripts/manage-user-action.sh
+
+          # Execute the user management script
+          .github/scripts/manage-user-action.sh
+
+      - name: Show completion summary
+        if: always()
+        run: |
+          echo ""
+          echo "================================================"
+          echo "User Management Summary"
+          echo "================================================"
+          echo "Database: ${{ github.event.inputs.database }}"
+          echo "Action: ${{ github.event.inputs.action }}"
+          echo "Username: ${{ github.event.inputs.username }}"
+          echo "Status: ${{ job.status }}"
+          echo "================================================"
