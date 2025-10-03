@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       database:
-        description: 'Database platform or specific database (mysql, postgresql, sqlserver, oracle, all, or exact name like mysql-ecommerce)'
+        description: 'Platform (mysql, postgresql, sqlserver, oracle, all) OR format {server-type}-{database-name} (e.g., postgres-prod). Do NOT use hostname.'
         required: false
         default: 'all'
         type: string

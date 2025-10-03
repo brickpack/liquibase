@@ -10,7 +10,7 @@ echo "=== AWS Region Selection ==="
 echo "Current AWS_REGION environment variable: ${AWS_REGION:-not set}"
 echo ""
 read -p "Enter AWS region [us-west-2]: " INPUT_REGION
-REGION="${INPUT_REGION:-${AWS_REGION:-us-east-1}}"
+REGION="${INPUT_REGION:-${AWS_REGION:-us-west-2}}"
 
 echo ""
 echo "Creating/updating secret: $SECRET_NAME"

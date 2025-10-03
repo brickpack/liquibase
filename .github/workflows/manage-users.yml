@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       database:
-        description: 'Database identifier (e.g., postgres-thedb, sqlserver-ecommerce)'
+        description: 'Format: {server-type}-{database-name} (e.g., postgres-prod, sqlserver-inventory). Do NOT use hostname here.'
         required: true
         type: string
       action:
