@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e
 
-# Script to create or update the liquibase-postgres-prod secret
-# This secret contains master connection and all PostgreSQL databases
+# Script to create or update the liquibase-oracle-prod secret
+# This secret contains master connection and all Oracle databases
 
-SECRET_NAME="liquibase-postgres-prod"
-
+SECRET_NAME="liquibase-oracle-prod"
 echo "=== AWS Region Selection ==="
 echo "Current AWS_REGION environment variable: ${AWS_REGION:-not set}"
 echo ""
 read -p "Enter AWS region [us-west-2]: " INPUT_REGION
 REGION="${INPUT_REGION:-${AWS_REGION:-us-east-1}}"
 
-echo ""
 echo "Creating/updating secret: $SECRET_NAME"
 echo "Region: $REGION"
 echo ""
@@ -34,19 +32,34 @@ else
 fi
 
 echo ""
-echo "=== PostgreSQL Master Connection ==="
+echo "=== Oracle Master Connection ==="
 echo "This is the superuser connection used to create databases and users."
 echo ""
 
-read -p "Master PostgreSQL host (e.g., my-postgres.aws.com): " MASTER_HOST
-read -p "Master PostgreSQL port [5432]: " MASTER_PORT
-MASTER_PORT=${MASTER_PORT:-5432}
-read -p "Master PostgreSQL username [postgres]: " MASTER_USER
-MASTER_USER=${MASTER_USER:-postgres}
-read -sp "Master PostgreSQL password: " MASTER_PASS
-echo ""
+read -p "Master Oracle host (e.g., my-oracle.aws.com): " MASTER_HOST
+read -p "Master Oracle port [1521]: " MASTER_PORT
+MASTER_PORT=${MASTER_PORT:-1521}
 
-MASTER_URL="jdbc:postgresql://${MASTER_HOST}:${MASTER_PORT}/postgres"
+echo "Oracle connection format:"
+echo "  1) Service Name (recommended for modern Oracle)"
+echo "  2) SID (legacy format)"
+read -p "Select format (1 or 2) [1]: " ORACLE_FORMAT
+ORACLE_FORMAT=${ORACLE_FORMAT:-1}
+
+if [ "$ORACLE_FORMAT" = "1" ]; then
+    read -p "Oracle service name [ORCL]: " ORACLE_SERVICE
+    ORACLE_SERVICE=${ORACLE_SERVICE:-ORCL}
+    MASTER_URL="jdbc:oracle:thin:@//${MASTER_HOST}:${MASTER_PORT}/${ORACLE_SERVICE}"
+else
+    read -p "Oracle SID [ORCL]: " ORACLE_SID
+    ORACLE_SID=${ORACLE_SID:-ORCL}
+    MASTER_URL="jdbc:oracle:thin:@${MASTER_HOST}:${MASTER_PORT}:${ORACLE_SID}"
+fi
+
+read -p "Master Oracle username [system]: " MASTER_USER
+MASTER_USER=${MASTER_USER:-system}
+read -sp "Master Oracle password: " MASTER_PASS
+echo ""
 
 echo ""
 echo "Master connection configured:"
@@ -58,7 +71,7 @@ echo ""
 SECRET_JSON=$(cat <<EOF
 {
   "master": {
-    "type": "postgresql",
+    "type": "oracle",
     "url": "$MASTER_URL",
     "username": "$MASTER_USER",
     "password": "$MASTER_PASS"
@@ -69,19 +82,34 @@ EOF
 )
 
 echo ""
-echo "=== PostgreSQL Databases ==="
-echo "Add databases that exist on this PostgreSQL server."
-echo "Leave database name empty when done."
+echo "=== Oracle Schemas/Pluggable Databases ==="
+echo "Add schemas or pluggable databases on this Oracle instance."
+echo "Leave name empty when done."
 echo ""
 
 while true; do
-    read -p "Database name (or press Enter to finish): " DB_NAME
+    read -p "Schema/PDB name (or press Enter to finish): " DB_NAME
     if [ -z "$DB_NAME" ]; then
         break
     fi
 
     echo ""
-    echo "Configuring database: $DB_NAME"
+    echo "Configuring: $DB_NAME"
+
+    read -p "Is this a Pluggable Database (PDB)? (y/n) [n]: " IS_PDB
+    IS_PDB=${IS_PDB:-n}
+
+    if [[ "$IS_PDB" =~ ^[Yy]$ ]]; then
+        # PDB format
+        if [ "$ORACLE_FORMAT" = "1" ]; then
+            DB_URL="jdbc:oracle:thin:@//${MASTER_HOST}:${MASTER_PORT}/${DB_NAME}"
+        else
+            DB_URL="jdbc:oracle:thin:@${MASTER_HOST}:${MASTER_PORT}:${DB_NAME}"
+        fi
+    else
+        # Schema in main database - use master URL
+        DB_URL="$MASTER_URL"
+    fi
 
     read -p "Admin username for $DB_NAME [$MASTER_USER]: " DB_USER
     DB_USER=${DB_USER:-$MASTER_USER}
@@ -92,11 +120,9 @@ while true; do
         DB_PASS="$MASTER_PASS"
     fi
 
-    DB_URL="jdbc:postgresql://${MASTER_HOST}:${MASTER_PORT}/${DB_NAME}"
-
     echo ""
     echo "=== Application Users for $DB_NAME ==="
-    echo "Add application users (like app_readwrite, app_readonly)."
+    echo "Add application users/schemas."
     echo "Leave username empty when done."
     echo ""
 
@@ -135,7 +161,7 @@ while true; do
         }')
 
     echo ""
-    echo "✓ Database '$DB_NAME' configured"
+    echo "✓ '$DB_NAME' configured"
     echo ""
 done
 
@@ -170,7 +196,7 @@ else
     echo "Creating secret: $SECRET_NAME"
     aws secretsmanager create-secret \
         --name "$SECRET_NAME" \
-        --description "Liquibase PostgreSQL server configuration with master connection and all databases" \
+        --description "Liquibase Oracle server configuration with master connection and all databases/schemas" \
         --secret-string "$SECRET_JSON" \
         --region "$REGION"
 fi
@@ -178,5 +204,5 @@ fi
 echo ""
 echo "✅ Secret '$SECRET_NAME' created/updated successfully!"
 echo ""
-echo "You can now use this with database identifier: postgres-{dbname}"
-echo "Example: postgres-thedb"
+echo "You can now use this with database identifier: oracle-{dbname}"
+echo "Example: oracle-thedb"
