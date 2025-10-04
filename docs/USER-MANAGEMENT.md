@@ -14,18 +14,39 @@ This solves password rotation complexity and keeps secrets out of version contro
 
 ### 1. Store User Passwords in AWS Secrets Manager
 
+User passwords are stored **per-server** in the same secret as connection details:
+
 ```bash
+# Example: PostgreSQL server secret structure
 aws secretsmanager create-secret \
-  --name "liquibase-users" \
-  --description "Database user passwords for automated password management" \
+  --name "liquibase-postgres-prod" \
+  --description "PostgreSQL server configuration with databases and users" \
   --secret-string '{
-    "finance_app": "SecureFinancePassword123!",
-    "finance_readonly": "ReadOnlyFinancePass456!",
-    "myapp_readwrite": "PostgresAppPassword789!",
-    "ecommerce_app": "MySQLAppPassword012!",
-    "inventory_app": "SQLServerAppPass345!"
+    "master": {
+      "type": "postgresql",
+      "url": "jdbc:postgresql://postgres-host:5432/postgres",
+      "username": "postgres",
+      "password": "master_password"
+    },
+    "databases": {
+      "thedb": {
+        "connection": {
+          "url": "jdbc:postgresql://postgres-host:5432/thedb",
+          "username": "admin_user",
+          "password": "admin_password"
+        },
+        "users": {
+          "app_readwrite": "SecurePassword123!",
+          "app_readonly": "ReadOnlyPassword456!"
+        }
+      }
+    }
   }'
 ```
+
+**Secret Naming:** `liquibase-{server}-prod` (e.g., `liquibase-postgres-prod`, `liquibase-mysql-prod`, `liquibase-sqlserver-prod`, `liquibase-oracle-prod`)
+
+**User Passwords Location:** `.databases.{dbname}.users` within each server secret
 
 ### 2. Create User Changesets with Temporary Passwords
 
@@ -143,7 +164,8 @@ When you run the pipeline in **deploy mode**:
    - Tracks changes in DATABASECHANGELOG table
 
 2. **manage-users.sh script runs after**:
-   - Fetches real passwords from AWS Secrets Manager (`liquibase-users` secret)
+   - Fetches real passwords from per-server AWS secret (`liquibase-{server}-prod`)
+   - Reads user passwords from `.databases.{dbname}.users`
    - Connects to each database using admin credentials
    - Sets real passwords for each user
    - Uses platform-specific password update commands
@@ -183,19 +205,26 @@ ALTER LOGIN [username] WITH PASSWORD = 'real_password';
 
 To rotate a password:
 
-1. **Update AWS Secrets Manager**:
+1. **Update AWS Secrets Manager** (update the specific user in the database's users object):
    ```bash
-   aws secretsmanager update-secret \
-     --secret-id liquibase-users \
-     --secret-string '{
-       "finance_app": "NewRotatedPassword123!",
-       ...other users...
-     }'
+   # Get current secret
+   SECRET=$(aws secretsmanager get-secret-value \
+     --secret-id liquibase-postgres-prod \
+     --query SecretString --output text)
+
+   # Update specific user password
+   UPDATED=$(echo "$SECRET" | jq \
+     '.databases.thedb.users.app_readwrite = "NewRotatedPassword123!"')
+
+   # Save back to AWS
+   aws secretsmanager put-secret-value \
+     --secret-id liquibase-postgres-prod \
+     --secret-string "$UPDATED"
    ```
 
 2. **Trigger deploy mode**:
    ```bash
-   gh workflow run liquibase-cicd.yml -f action=deploy -f database=oracle-finance
+   gh workflow run liquibase-cicd.yml -f action=deploy -f database=postgres-thedb
    ```
 
 The script will automatically update the password in the database.
@@ -213,14 +242,13 @@ The script will automatically update the password in the database.
 
 ## Configuration
 
-Set these GitHub repository variables (Settings > Secrets and variables > Actions > Variables):
-
-- `USER_SECRET_NAME` (optional): AWS secret name containing user passwords (default: `liquibase-users`)
-
 The pipeline automatically:
-- Discovers which database needs user management
-- Fetches the correct passwords from AWS Secrets Manager
+- Discovers which database needs user management based on changelog files (`{server}-{dbname}`)
+- Fetches the correct passwords from the per-server AWS secret (`liquibase-{server}-prod`)
+- Reads user passwords from `.databases.{dbname}.users` in the secret
 - Updates passwords after Liquibase deployment
+
+**No additional GitHub variables needed** - everything is inferred from the database identifier.
 
 ## Troubleshooting
 
@@ -238,9 +266,16 @@ gh workflow run liquibase-cicd.yml -f action=deploy -f database=your-database
 **Cause**: Password not updated or incorrect in AWS Secrets Manager.
 
 **Solution**:
-1. Verify password exists in `liquibase-users` secret
+1. Verify password exists in the per-server secret at `.databases.{dbname}.users.{username}`
 2. Check workflow logs for "Setting real passwords for database users" step
 3. Ensure username in secret matches username in changeset exactly
+
+Example check:
+```bash
+aws secretsmanager get-secret-value \
+  --secret-id liquibase-postgres-prod \
+  --query SecretString --output text | jq '.databases.thedb.users'
+```
 
 ### Oracle: Password update failed
 
@@ -264,14 +299,24 @@ CREATE USER username FOR LOGIN username;
 
 ## Adding a New User
 
-1. **Add password to AWS Secrets Manager**:
+1. **Add password to AWS Secrets Manager** (add to the database's users object):
    ```bash
-   current=$(aws secretsmanager get-secret-value --secret-id liquibase-users --query SecretString --output text)
-   updated=$(echo "$current" | jq '. + {"new_analytics_user": "NewPassword123!"}')
-   aws secretsmanager update-secret --secret-id liquibase-users --secret-string "$updated"
+   # Get current secret
+   SECRET=$(aws secretsmanager get-secret-value \
+     --secret-id liquibase-postgres-prod \
+     --query SecretString --output text)
+
+   # Add new user to specific database
+   UPDATED=$(echo "$SECRET" | jq \
+     '.databases.thedb.users.new_analytics_user = "NewPassword123!"')
+
+   # Save back to AWS
+   aws secretsmanager put-secret-value \
+     --secret-id liquibase-postgres-prod \
+     --secret-string "$UPDATED"
    ```
 
-2. **Create changeset** (see examples above for your platform)
+2. **Create changeset** in the appropriate database folder (see examples above for your platform)
 
 3. **Deploy**:
    ```bash
@@ -283,3 +328,14 @@ CREATE USER username FOR LOGIN username;
    ```
 
 That's it! The user management system provides secure, automated database user creation across all platforms.
+
+## Helper Scripts
+
+Use these interactive scripts to manage secrets more easily:
+
+- `create-secret.sh` - Create/update server secrets for any database type (PostgreSQL, MySQL, SQL Server, Oracle)
+- `add-database-to-server.sh` - Add a database to an existing server secret
+- `setup-multiple-servers.sh` - Bulk create secrets for multiple servers
+- `update-secret.sh` - CLI tool for quick secret updates
+
+See [REFERENCE.md](REFERENCE.md) for detailed secrets documentation and script usage.

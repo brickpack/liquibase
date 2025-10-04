@@ -1,0 +1,82 @@
+# Liquibase Configuration Template for Local Development
+#
+# This template helps you run Liquibase locally without AWS access.
+#
+# Usage:
+#   1. Copy this file: cp liquibase.properties.template liquibase.properties
+#   2. Set environment variables or edit liquibase.properties directly
+#   3. Run Liquibase commands: liquibase --defaults-file=liquibase.properties validate
+#
+# Note: liquibase.properties is gitignored to prevent committing credentials
+
+# Changelog file (required)
+# Format: changelog-{server}-{dbname}.xml
+# Examples: changelog-postgres-thedb.xml, changelog-sqlserver-thedb.xml
+changelogFile=${LIQUIBASE_CHANGELOG_FILE}
+
+# Database connection (required)
+# Set these via environment variables or replace with actual values
+url=${LIQUIBASE_URL}
+username=${LIQUIBASE_USERNAME}
+password=${LIQUIBASE_PASSWORD}
+
+# Driver class (auto-detected from URL in most cases, but can be specified)
+# PostgreSQL: org.postgresql.Driver
+# MySQL: com.mysql.cj.jdbc.Driver
+# SQL Server: com.microsoft.sqlserver.jdbc.SQLServerDriver
+# Oracle: oracle.jdbc.OracleDriver
+driver=${LIQUIBASE_DRIVER}
+
+# Logging
+logLevel=INFO
+logFile=liquibase.log
+
+# Output file for update-sql command
+outputFile=liquibase-output.txt
+
+# Example environment variable setup (add to ~/.bashrc, ~/.zshrc, or .env file):
+#
+# PostgreSQL:
+#   export LIQUIBASE_CHANGELOG_FILE=changelog-postgres-thedb.xml
+#   export LIQUIBASE_URL=jdbc:postgresql://localhost:5432/thedb
+#   export LIQUIBASE_USERNAME=postgres
+#   export LIQUIBASE_PASSWORD=your_password
+#   export LIQUIBASE_DRIVER=org.postgresql.Driver
+#
+# SQL Server:
+#   export LIQUIBASE_CHANGELOG_FILE=changelog-sqlserver-thedb.xml
+#   export LIQUIBASE_URL="jdbc:sqlserver://localhost:1433;databaseName=thedb;encrypt=false"
+#   export LIQUIBASE_USERNAME=sa
+#   export LIQUIBASE_PASSWORD=your_password
+#   export LIQUIBASE_DRIVER=com.microsoft.sqlserver.jdbc.SQLServerDriver
+#
+# MySQL:
+#   export LIQUIBASE_CHANGELOG_FILE=changelog-mysql-thedb.xml
+#   export LIQUIBASE_URL=jdbc:mysql://localhost:3306/thedb
+#   export LIQUIBASE_USERNAME=root
+#   export LIQUIBASE_PASSWORD=your_password
+#   export LIQUIBASE_DRIVER=com.mysql.cj.jdbc.Driver
+#
+# Oracle:
+#   export LIQUIBASE_CHANGELOG_FILE=changelog-oracle-thedb.xml
+#   export LIQUIBASE_URL=jdbc:oracle:thin:@localhost:1521/ORCL
+#   export LIQUIBASE_USERNAME=system
+#   export LIQUIBASE_PASSWORD=your_password
+#   export LIQUIBASE_DRIVER=oracle.jdbc.OracleDriver
+
+# Common Liquibase commands:
+#
+# Validate changelog:
+#   liquibase --defaults-file=liquibase.properties validate
+#
+# Show pending changes:
+#   liquibase --defaults-file=liquibase.properties status
+#
+# Generate SQL preview:
+#   liquibase --defaults-file=liquibase.properties update-sql
+#
+# Apply changes:
+#   liquibase --defaults-file=liquibase.properties update
+#
+# Rollback last changeset:
+#   liquibase --defaults-file=liquibase.properties rollback-count 1

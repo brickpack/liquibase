@@ -7,7 +7,6 @@
 
     <!-- Users -->
     <include file="db/changelog/postgres/thedb/users/001-create-users.sql" relativeToChangelogFile="true"/>
-    <include file="db/changelog/postgres/thedb/users/002-grant-basic-privileges.sql" relativeToChangelogFile="true"/>
 
     <!-- Tables -->
     <include file="db/changelog/postgres/thedb/tables/001-create-tables.sql" relativeToChangelogFile="true"/>

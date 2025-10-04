@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset db-admin:101
+--changeset db-admin:101 splitStatements:false
 --comment: Create read-write user for application
 IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'app_readwrite')
 BEGIN
@@ -22,7 +22,7 @@ ALTER ROLE db_datawriter ADD MEMBER app_readwrite;
 GRANT EXECUTE TO app_readwrite;
 GO
 
---changeset db-admin:102
+--changeset db-admin:102 splitStatements:false
 --comment: Create read-only user for reporting
 IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'app_readonly')
 BEGIN
