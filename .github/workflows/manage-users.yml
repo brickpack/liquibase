@@ -1,0 +1,108 @@
+name: Manage Database Users
+
+on:
+  workflow_dispatch:
+    inputs:
+      database:
+        description: 'Database identifier (e.g., postgres-thedb, mysql-ecommerce)'
+        required: true
+        type: string
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - sync-passwords        # Sync all user passwords from AWS Secrets Manager
+          - rotate-password       # Rotate a specific user password (requires username)
+          - list-users           # List all users configured in the secret
+      username:
+        description: 'Username (required for rotate-password action)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  manage-users:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository }}/liquibase-tools:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Validate inputs
+        run: |
+          echo "=== User Management Request ==="
+          echo "Database: ${{ github.event.inputs.database }}"
+          echo "Action: ${{ github.event.inputs.action }}"
+          echo "Username: ${{ github.event.inputs.username || '(not specified)' }}"
+          echo ""
+
+          # Validate database format
+          if [[ ! "${{ github.event.inputs.database }}" =~ ^(postgres|mysql|sqlserver|oracle)- ]]; then
+            echo "❌ Invalid database identifier format"
+            echo "Expected format: {server-type}-{database-name}"
+            echo "Examples: postgres-thedb, mysql-ecommerce, sqlserver-inventory"
+            exit 1
+          fi
+
+          # Validate username for rotate-password
+          if [[ "${{ github.event.inputs.action }}" == "rotate-password" ]] && [[ -z "${{ github.event.inputs.username }}" ]]; then
+            echo "❌ Username is required for rotate-password action"
+            exit 1
+          fi
+
+      - name: Execute user management action
+        run: |
+          chmod +x .github/scripts/manage-users-standalone.sh
+          .github/scripts/manage-users-standalone.sh \
+            "${{ github.event.inputs.database }}" \
+            "${{ github.event.inputs.action }}" \
+            "${{ github.event.inputs.username }}"
+
+      - name: Show summary
+        if: always()
+        run: |
+          echo ""
+          echo "=== User Management Summary ==="
+          echo "Database: ${{ github.event.inputs.database }}"
+          echo "Action: ${{ github.event.inputs.action }}"
+          echo "Status: ${{ job.status }}"
+          echo ""
+
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ User management completed successfully"
+
+            case "${{ github.event.inputs.action }}" in
+              sync-passwords)
+                echo ""
+                echo "All user passwords have been synchronized from AWS Secrets Manager."
+                echo "Users can now log in with their configured passwords."
+                ;;
+              rotate-password)
+                echo ""
+                echo "Password for user '${{ github.event.inputs.username }}' has been updated."
+                echo "Make sure to update the password in AWS Secrets Manager if you haven't already."
+                ;;
+              list-users)
+                echo ""
+                echo "User list has been displayed above."
+                ;;
+            esac
+          else
+            echo "❌ User management failed"
+            echo "Check the logs above for error details."
+          fi

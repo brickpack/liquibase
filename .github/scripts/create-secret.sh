@@ -56,9 +56,36 @@ case "$DB_TYPE" in
 esac
 
 echo ""
+echo "=== Environment Selection ==="
+echo "Select the environment for this server:"
+echo "1) prod"
+echo "2) staging"
+echo "3) dev"
+echo "4) custom"
+echo ""
+read -p "Environment (1-4): " ENV_CHOICE
+
+case "$ENV_CHOICE" in
+    1) ENVIRONMENT="prod" ;;
+    2) ENVIRONMENT="staging" ;;
+    3) ENVIRONMENT="dev" ;;
+    4)
+        read -p "Enter custom environment name: " ENVIRONMENT
+        if [ -z "$ENVIRONMENT" ]; then
+            echo "❌ Environment name is required!"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "❌ Invalid choice"
+        exit 1
+        ;;
+esac
+
+echo ""
 echo "=== $DB_TYPE_DISPLAY Server Configuration ==="
-echo "Enter the server name (e.g., prod, staging, dev-west, etc.)"
-echo "This will create a secret named: liquibase-${DB_TYPE}-{server-name}"
+echo "Enter the server identifier (e.g., main, analytics, reporting, etc.)"
+echo "This will create a secret named: liquibase/${ENVIRONMENT}/${DB_TYPE}/{server-name}"
 echo ""
 read -p "$DB_TYPE_DISPLAY server name: " SERVER_NAME
 
@@ -73,7 +100,7 @@ if [[ ! "$SERVER_NAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
     exit 1
 fi
 
-SECRET_NAME="liquibase-${DB_TYPE}-${SERVER_NAME}"
+SECRET_NAME="liquibase/${ENVIRONMENT}/${DB_TYPE}/${SERVER_NAME}"
 
 echo ""
 echo "=== AWS Region Selection ==="
@@ -84,7 +111,9 @@ REGION="${INPUT_REGION:-${AWS_REGION:-us-west-2}}"
 
 echo ""
 echo "Creating/updating secret: $SECRET_NAME"
-echo "Server: $SERVER_NAME"
+echo "Environment: $ENVIRONMENT"
+echo "Server Type: $DB_TYPE"
+echo "Server Name: $SERVER_NAME"
 echo "Region: $REGION"
 echo ""
 
@@ -302,9 +331,11 @@ fi
 echo ""
 echo "✅ Secret '$SECRET_NAME' created/updated successfully!"
 echo ""
-echo "You can now use this with database identifier: ${DB_TYPE}-{dbname}"
-echo "Example: ${DB_TYPE}-thedb"
+echo "Database identifier format: ${ENVIRONMENT}-${DB_TYPE}-{dbname}"
+echo "Example: ${ENVIRONMENT}-${DB_TYPE}-thedb"
 echo ""
-echo "Server: $SERVER_NAME"
+echo "Environment: $ENVIRONMENT"
+echo "Server Type: $DB_TYPE"
+echo "Server Name: $SERVER_NAME"
 echo "Secret: $SECRET_NAME"
 echo "Databases configured: $(echo "$SECRET_JSON" | jq '.databases | keys | length')"

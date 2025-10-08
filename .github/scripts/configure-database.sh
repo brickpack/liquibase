@@ -12,11 +12,13 @@ fi
 
 echo "Configuring database: $DATABASE"
 
-# Parse database identifier (e.g., "postgres-thedb" -> server="postgres", dbname="thedb")
-DB_SERVER=$(echo "$DATABASE" | cut -d'-' -f1)
-DB_NAME=$(echo "$DATABASE" | cut -d'-' -f2-)
+# Parse database identifier (e.g., "prod-postgres-thedb" -> env="prod", server="postgres", dbname="thedb")
+# New format: {environment}-{server-type}-{database-name}
+DB_ENVIRONMENT=$(echo "$DATABASE" | cut -d'-' -f1)
+DB_SERVER=$(echo "$DATABASE" | cut -d'-' -f2)
+DB_NAME=$(echo "$DATABASE" | cut -d'-' -f3-)
 
-echo "Parsed: Server Type=$DB_SERVER, Database Name=$DB_NAME"
+echo "Parsed: Environment=$DB_ENVIRONMENT, Server Type=$DB_SERVER, Database Name=$DB_NAME"
 
 if [ "$TEST_MODE" = "true" ]; then
     # Test mode - offline configuration
@@ -31,12 +33,21 @@ EOF
     echo "Test configuration created"
 else
     # Production mode - get credentials from AWS per-server secret
-    # Secret name format: liquibase-{server}-{environment}
-    # For now, defaulting to "prod" environment
-    SECRET_NAME="liquibase-${DB_SERVER}-prod"
+    # Secret name format: liquibase/{environment}/{server-type}/{server-name}
+    # Default server name is "main"
+    SERVER_NAME="${SERVER_NAME:-main}"
+    SECRET_NAME="liquibase/${DB_ENVIRONMENT}/${DB_SERVER}/${SERVER_NAME}"
 
     echo "Reading secret: $SECRET_NAME"
-    SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+    SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text 2>/dev/null || true)
+
+    # If secret not found, try without server name (backward compatibility)
+    if [ -z "$SECRET_JSON" ]; then
+        echo "Secret not found at: $SECRET_NAME"
+        echo "Trying alternate path: liquibase/${DB_ENVIRONMENT}/${DB_SERVER}"
+        SECRET_NAME="liquibase/${DB_ENVIRONMENT}/${DB_SERVER}"
+        SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+    fi
 
     # Extract database configuration from: secret.databases.{dbname}.connection
     DB_URL=$(echo "$SECRET_JSON" | jq -r --arg db "$DB_NAME" '.databases[$db].connection.url // empty')
